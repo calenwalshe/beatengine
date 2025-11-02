@@ -1,0 +1,608 @@
+# Berlin-Style Techno MIDI Engine — Roadmap (Aesthetics-Encoded Edition)
+
+**Scope:** A native‑Python engine that offline‑generates **hypnotic Berlin/Berghain‑style techno** MIDI loops with an **808 palette**. No GUI, no DAW dependencies. Output is a `.mid` file with **PPQ ≥ 960** (recommend **1920**) to preserve **±25 ms** microtiming.
+
+This edition explicitly encodes the **“Hypnotic Berlin” aesthetic principles** into design invariants, parameters, algorithms, and tests.
+
+---
+
+## A. Aesthetic Principles → Engineering Encodings
+
+> The following five principles are enforced via defaults, constraints, controllers, and tests. These become non-negotiable **guardrails** for the engine.
+
+### A.1 Repetition & Horizontal Continuity (“stasis-in-motion”)
+- **Encoding:** slow, bounded **long-horizon modulators** (random-walk / Ornstein-Uhlenbeck) apply to rotations, swing, micro push/pull, and hat thinning; **no abrupt jumps**. Rates are per-bar and capped.
+- **Implementation:** `LongHorizonModulator` drives parameters with a small per-bar step size and reflection at bounds. Controller disallows changes exceeding `max_delta_per_bar`.
+- **Tests:** verify **Lipschitz-like** constraint on parameter change per bar.
+
+### A.2 Meter, Timing, Micro-Deviation (beat-bins)
+- **Encoding:** micro offsets are **layer-specific**, capped within ±10–25 ms. Use **beat-bin** distributions (discrete offsets with probabilities) instead of free Gaussian noise to keep idiomatic feel.
+- **Implementation:** `BeatBinProfile` samples micro from `{−10, −6, −2, 0, +2, +6, +10}` ms (example), with distinct profiles per layer (hats = early-skew; snare/clap = late-skew). Global **T_ms cap** enforced by feedback.
+- **Tests:** sampled offsets fall inside configured bins; RMS stays below `targets.T_ms` over time.
+
+### A.3 Medium Syncopation (inverted-U optimum)
+- **Encoding:** maintain **syncopation index S** inside a band, e.g., **[0.35, 0.55]**. Bias Markov onset probabilities by **step metric weights** and **sync error** toward the band’s midpoint.
+- **Implementation:** per-bar `sync_error = (S* − S_bar)` tilts `p_on` stepwise; feedback also tweaks snare displacement and hat offbeats.
+- **Tests:** over long runs, median **S** lies in band, with small variance.
+
+### A.4 Density and Space (evenness vs. voids)
+- **Encoding:** even Euclidean backbones (kick on 4/4, hats on 16ths) contrasted by **strategic voids** via conditional mutes, chokes, and per-layer **target density**.
+- **Implementation:** `DensityProfile(target, tol)` clamps per-bar onsets count; **thinning near kick** avoids clutter; **choke groups** enforce space.
+- **Tests:** layer densities remain within tolerance; hats thin around kicks.
+
+### A.5 Global Accents (cross-layer energy contour)
+- **Encoding:** a global **Accent lane** scales velocity (and optionally note length) for **all voices on that step**, reducing per-step velocity noise and increasing cohesion.
+- **Implementation:** `AccentProfile` applied post-scheduling; optional decay to length for hats.
+- **Tests:** on accent steps, all active voices reflect scaled velocities; non-accent steps unaffected.
+
+---
+
+## B. System Architecture (modules & data flow)
+
+```
+Config (.json/.yaml)  ──▶  Parameter Builder (seeded)
+        │                          │
+        ▼                          ▼
+ Long-Horizon Modulators     Engine State (rot accum, flags, bar counters)
+        │                          │
+        └──────────────┬───────────┘
+                       ▼
+             Layer Generators (kick, hat_c, hat_o, snare/clap)
+                       │ raw onsets per step
+                       ▼
+        Conditions/Constraints (prob/PRE/FILL/every-N/mute-near-kick/
+                                refractory/polymeter/density clamp)
+                       │ gated onsets
+                       ▼
+ Micro/Swing/Beat-Bins → Accent Macro → Choke Groups → MIDI Queue (abs ticks)
+                       │
+                       ▼
+          Scoring (E,S,D,H,T) ──▶ Feedback Controller + Guardrails
+                       │
+                       ▼
+                    Next bar → write delta-encoded MIDI at end
+```
+
+---
+
+## C. Data Model (`@dataclass` schemas)
+
+```python
+# src/techno_engine/models.py
+from __future__ import annotations
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import Dict, List, Optional, Tuple, Callable
+import numpy as np
+
+class LayerType(Enum):
+    KICK = auto()
+    HAT_C = auto()
+    HAT_O = auto()
+    SNARE = auto()
+    CLAP = auto()
+
+class CondType(Enum):
+    PROB = auto()
+    PRE = auto()
+    NOT_PRE = auto()
+    FILL = auto()
+    EVERY_N = auto()
+    MUTE_NEAR_KICK = auto()
+
+@dataclass
+class StepCondition:
+    kind: CondType
+    p: float = 1.0
+    n: int = 0                 # EVERY_N
+    offset: int = 0            # EVERY_N
+    window_steps: int = 1      # MUTE_NEAR_KICK ±window
+    negate: bool = False
+
+@dataclass
+class BeatBinProfile:
+    bins_ms: List[float]                 # e.g., [-10,-6,-2,0,2,6,10]
+    probs: List[float]                   # same length; sum≈1
+    cap_ms: float = 25.0                 # global clamp per layer
+
+@dataclass
+class MicrotimingProfile:
+    micro_ms: float = 0.0                # base offset (push/pull)
+    swing_percent: Optional[float] = None# 0.5 = straight
+    max_abs_ms: float = 25.0
+    beat_bins: Optional[BeatBinProfile] = None
+
+@dataclass
+class AccentProfile:
+    steps_1idx: List[int] = field(default_factory=list)
+    prob: float = 0.0
+    velocity_scale: float = 1.0
+    length_scale: float = 1.0
+
+@dataclass
+class DensityProfile:
+    target: float                        # 0..1 of 16 steps
+    tolerance: float = 0.1               # allowed deviation
+    void_steps_1idx: List[int] = field(default_factory=list)  # prefer rests here
+    void_bias: float = -0.3              # negative prob bias on void steps
+
+@dataclass
+class GeneratorParams:
+    euclid_steps: int
+    euclid_fills: int
+    euclid_rot: int = 0
+    rotation_rate_per_bar: float = 0.0   # slow drift
+    last_step: Optional[int] = None
+    markov_P: Optional[np.ndarray] = None# 2x2 or 4x4
+    base_prob: float = 1.0
+    refractory_steps: int = 0
+    skip_near_kick_steps: int = 0
+    skip_near_kick_prob_bias: float = 0.0
+    offbeats_only: bool = False
+    backbeat: bool = False
+    displace_into_2_prob: float = 0.0
+    ratchet_prob: float = 0.0
+    ratchet_repeat: int = 2
+    ghost_pre1_prob: float = 0.0
+    density: Optional[DensityProfile] = None
+
+@dataclass
+class Layer:
+    name: str
+    ltype: LayerType
+    note: int
+    velocities: List[int]
+    micro: MicrotimingProfile
+    params: GeneratorParams
+    conditions: List[StepCondition] = field(default_factory=list)
+    choke_group: Optional[int] = None
+    channel: int = 9
+
+@dataclass
+class EvaluatorTargets:
+    E_target: float
+    S_range: Tuple[float, float]
+    D_target: float
+    H_range: Tuple[float, float]
+    T_ms_cap: float
+
+@dataclass
+class EntrainmentGuard:
+    min_E: float = 0.75
+    max_rot_rate: float = 0.125           # steps per bar
+    kick_immutable: bool = True
+    rescue_actions: List[str] = field(default_factory=lambda: [
+        "reduce_offbeat_probs", "reset_rotations", "straighten_swing"
+    ])
+
+@dataclass
+class LongHorizonModulator:
+    name: str
+    param_path: str                        # dotted path into Layer or EngineConfig
+    mode: str = "random_walk"              # or "ou", "sine"
+    min_val: float = 0.0
+    max_val: float = 1.0
+    step_per_bar: float = 0.01            # random_walk: delta magnitude
+    tau: float = 32.0                      # OU/sine characteristic scale (bars)
+    max_delta_per_bar: float = 0.05
+    phase: float = 0.0                     # for sine mode
+
+@dataclass
+class EngineConfig:
+    bpm: float
+    ppq: int
+    bars: int
+    seed: int
+    notes: Dict[str, int]
+    layers: Dict[str, Layer]
+    accent: AccentProfile
+    targets: EvaluatorTargets
+    rotation_every_bars: int = 16
+    fill_every_bars: Optional[int] = None
+    modulators: List[LongHorizonModulator] = field(default_factory=list)
+    guard: EntrainmentGuard = field(default_factory=EntrainmentGuard)
+
+@dataclass
+class Step:
+    idx: int
+    onset: int = 0
+    vel: int = 0
+    dur_ticks: int = 0
+    micro_ms: float = 0.0
+    ratchet: int = 1
+    conditions: List[StepCondition] = field(default_factory=list)
+
+@dataclass
+class MidiEvent:
+    note: int
+    vel: int
+    start_abs_tick: int
+    dur_tick: int
+    channel: int
+
+@dataclass
+class Scores:
+    E: float
+    S: float
+    D: Dict[str, float]
+    H: Dict[str, float]
+    T_ms: Dict[str, float]
+```
+
+---
+
+## D. Core Algorithms (pseudo/complexity)
+
+### D.1 Euclidean mask & slow rotation — `O(steps)`
+Same Bjorklund implementation as previous roadmap; see `euclid.py`. Rotation uses a **float accumulator** per layer to support fractional drift: `rot_f += rotation_rate_per_bar` → `rot = round(rot_f) % steps`.
+
+### D.2 Long-Horizon Modulators (continuity)
+Per-bar update enforces small deltas; reflection at bounds.
+
+```python
+# src/techno_engine/modulate.py
+import math, random
+
+def step_modulator(value: float, mod: LongHorizonModulator, bar_idx: int) -> float:
+    if mod.mode == "random_walk":
+        delta = random.uniform(-mod.step_per_bar, mod.step_per_bar)
+        delta = max(-mod.max_delta_per_bar, min(mod.max_delta_per_bar, delta))
+        newv = value + delta
+    elif mod.mode == "ou":
+        # Ornstein–Uhlenbeck toward midpoint
+        mid = 0.5*(mod.min_val + mod.max_val)
+        theta = 1.0 / max(1e-6, mod.tau)
+        noise = random.gauss(0.0, mod.step_per_bar)
+        newv = value + theta*(mid - value) + noise
+    elif mod.mode == "sine":
+        phase = (mod.phase + bar_idx/mod.tau) % 1.0
+        newv = mod.min_val + 0.5*(1+math.sin(2*math.pi*phase))*(mod.max_val-mod.min_val)
+    # reflect at bounds
+    newv = max(mod.min_val, min(mod.max_val, newv))
+    # clamp delta
+    if abs(newv - value) > mod.max_delta_per_bar:
+        newv = value + math.copysign(mod.max_delta_per_bar, newv - value)
+    return newv
+```
+
+### D.3 Markov with sync-biased probabilities — per step `O(1)`
+```python
+# src/techno_engine/markov.py
+def sample_markov(prev_state: int, P, metric_w: float,
+                  sync_error: float, gain: float=0.15, base_prob: float=0.5) -> int:
+    p_on = float(P[prev_state, 1]) if P is not None else base_prob
+    p_on += gain * sync_error * metric_w
+    p_on = min(0.999, max(0.001, p_on))
+    return 1 if random.random() < p_on else 0
+```
+
+### D.4 Conditional trig logic — `O(#conditions)`
+Same as before; `MUTE_NEAR_KICK` consults precomputed kick mask; `EVERY_N` adds slow structure.
+
+### D.5 Density clamp & void bias — per bar `O(steps)`
+After raw generation, enforce `target` onsets per bar (greedy prune/add on weakest metric positions) and apply **void bias**.
+
+```python
+# src/techno_engine/density.py
+def enforce_density(mask, target_ratio: float, tol: float, metric_w):
+    target = int(round(len(mask) * target_ratio))
+    idx_on = [i for i,v in enumerate(mask) if v==1]
+    if len(idx_on) > target + int(tol*len(mask)):
+        # prune weakest first (lowest metric weight)
+        idx_on.sort(key=lambda i: metric_w[i])
+        for i in idx_on[:len(idx_on)-target]:
+            mask[i] = 0
+    elif len(idx_on) < target - int(tol*len(mask)):
+        # add strongest silent positions
+        idx_off = [i for i,v in enumerate(mask) if v==0]
+        idx_off.sort(key=lambda i: -metric_w[i])
+        for i in idx_off[:target-len(idx_on)]:
+            mask[i] = 1
+    return mask
+```
+
+### D.6 Microtiming: swing + beat-bins — `O(1)` per step
+- Base tick: `bar_idx, step_idx → abs_tick`
+- Swing: **even-16th**; delay odd steps by `(swing_percent-0.5)*(ppq/8)`
+- Micro: sample from `BeatBinProfile` (if present) else use `micro_ms`; clamp to `max_abs_ms` and global cap.
+
+```python
+# src/techno_engine/micro.py
+def sample_beat_bin(profile: BeatBinProfile, rng) -> float:
+    # multinomial draw
+    r = rng.random()
+    cdf, acc = [], 0.0
+    for p in profile.probs:
+        acc += p; cdf.append(acc)
+    for i,cut in enumerate(cdf):
+        if r <= cut: return profile.bins_ms[i]
+    return profile.bins_ms[-1]
+```
+
+### D.7 Choke groups — `O(1)` per onset
+Closed-hat onsets send note-off to open-hat in same group immediately.
+
+### D.8 Accent macro — `O(#layers)` per step
+Scale velocity/length for all notes on accented steps; probability gate `accent.prob` prevents over-regularity.
+
+### D.9 Constraints/GUARDS
+- **Refractory:** block same-layer doublets within N steps.
+- **Mute-near-kick:** ±window steps around kick reduce/mute hats/snare.
+- **Guardrails:** if `E < guard.min_E`, run rescue actions: decrease offbeat probs, retard rotation, swing → 0.5, etc.
+
+---
+
+## E. Scoring & Controller
+
+### E.1 Metrics (per bar)
+- **E (entrainment):** `E = 0.5*(R(4)/R(0) + R(16)/R(0))` on the **union** signal (binary OR across layers).
+- **S (syncopation):** LHL/Fitch-Rosenfeld variant with metric tiers: beats=1.0, offbeats=0.7, others=0.4; normalize to [0,1].
+- **D (dispersion):** per-layer normalized IOI variance.
+- **H (entropy):** Bernoulli entropy of 16-step binary string, normalized.
+- **T (micro RMS):** per-layer RMS micro in ms, clipped at cap.
+
+### E.2 Feedback Policy
+- Compute `sync_error = (S* − S_bar)` with `S* = mid(target_range)`.  
+- Nudge: hats/snare onset bias, snare displacement, hat offbeats, rotation rate, swing, micro amplitude.  
+- Enforce `guard` caps per bar; if **E** falls below `min_E`, apply **rescue** sequence.
+
+---
+
+## F. Config Schema (JSON/YAML) — additions highlighted
+
+```json
+{
+  "bpm": 132,
+  "ppq": 1920,
+  "bars": 64,
+  "seed": 1234,
+  "targets": {"E": 0.8, "S": [0.35, 0.55], "D": 0.2, "H": [0.3, 0.6], "T_ms": 18},
+  "rotation_every_bars": 16,
+  "notes": {"kick":36, "hat_c":42, "hat_o":46, "snare":38, "clap":39},
+  "layers": {
+    "kick": {
+      "euclid":{"steps":16,"fills":4,"rot":0},
+      "ghost_pre1_prob":0.12,
+      "refractory_steps":1,
+      "vel_curve":[110,110,110,110],
+      "micro": {
+        "micro_ms": 0,
+        "swing_percent": null,
+        "max_abs_ms": 10,
+        "beat_bins": {"bins_ms":[0], "probs":[1.0], "cap_ms": 10}
+      },
+      "density": {"target": 0.25, "tolerance": 0.0}
+    },
+    "hat_c": {
+      "euclid":{"steps":16,"fills":12,"rot":0},
+      "skip_near_kick_steps":1,
+      "skip_near_kick_prob_bias":-0.5,
+      "ratchet_prob":0.03,
+      "vel_pattern":[80,65,75,65],
+      "micro": {
+        "micro_ms": -6,
+        "swing_percent": 0.55,
+        "max_abs_ms": 12,
+        "beat_bins": {"bins_ms":[-10,-6,-2,0], "probs":[0.4,0.35,0.2,0.05], "cap_ms": 12}
+      },
+      "density": {"target": 0.75, "tolerance": 0.05, "void_steps_1idx":[1,9], "void_bias": -0.2}
+    },
+    "hat_o": {
+      "offbeats_only": true,
+      "choke_on_hat_c": true,
+      "ratchet_prob": 0.05,
+      "micro": {
+        "micro_ms": 0,
+        "swing_percent": 0.55,
+        "max_abs_ms": 10,
+        "beat_bins": {"bins_ms":[-2,0,2], "probs":[0.2,0.6,0.2], "cap_ms": 10}
+      },
+      "density": {"target": 0.25, "tolerance": 0.1}
+    },
+    "snare": {
+      "backbeat": true,
+      "displace_into_2_prob": 0.08,
+      "micro": {
+        "micro_ms": 8,
+        "swing_percent": null,
+        "max_abs_ms": 15,
+        "beat_bins": {"bins_ms":[0,4,8,10], "probs":[0.1,0.2,0.4,0.3], "cap_ms": 15}
+      },
+      "vel_curve": [96,96],
+      "density": {"target": 0.125, "tolerance": 0.05}
+    }
+  },
+  "accent": {"steps":[1,5,9,13], "prob":0.125, "velocity_scale":1.1, "length_scale":1.0},
+  "modulators": [
+    {"name":"hat_c_rotation", "param_path":"layers.hat_c.params.rotation_rate_per_bar",
+     "mode":"random_walk", "min_val":0.0, "max_val":0.125, "step_per_bar":0.01, "max_delta_per_bar":0.02},
+    {"name":"hat_thinning", "param_path":"layers.hat_c.params.skip_near_kick_prob_bias",
+     "mode":"ou", "min_val":-0.8, "max_val":0.0, "tau":32.0, "step_per_bar":0.02, "max_delta_per_bar":0.03},
+    {"name":"swing_drift", "param_path":"layers.hat_c.micro.swing_percent",
+     "mode":"ou", "min_val":0.51, "max_val":0.58, "tau":48.0, "step_per_bar":0.005, "max_delta_per_bar":0.01}
+  ],
+  "guard": {"min_E":0.78, "max_rot_rate":0.125, "kick_immutable": true}
+}
+```
+
+---
+
+## G. MIDI Backend & Mapping
+
+- **Backend:** `mido` (preferred) with **absolute tick scheduling**, sort, then delta-encode.  
+- **PPQ:** 1920 (→ ~**4.224 ticks/ms** at 132 BPM).  
+- **Instruments (GM 808 palette):** Kick=36, ClosedHat=42, OpenHat=46, Snare=38, Clap=39. All on channel 10 (index 9).
+
+---
+
+## H. Milestones — specs & **essential unit tests**
+
+### **M0 — Skeleton & I/O**
+**Spec:** scaffolding, config loader, RNG seed, MIDI write, bar math, metronome track.  
+**Tests:**
+- Header PPQ=1920; tempo 132; 4 clicks/bar for 8 bars.
+- `ms→ticks` approx 25 ms → 100–110 ticks.
+
+### **M1 — Deterministic Backbone**
+**Spec:** kick 4/4 with refractory; hat-C 16ths (straight), velocity staircase; snare/clap backbeats; 8-bar render.  
+**Tests:**
+- Kick steps = {0,4,8,12}. No doublets.
+- Hat-C count = 16 per bar; Snare/Clap = 2 per bar.
+- **E ≥ 0.9**, **S** within [0.2, 0.35] (pre-sync stage).
+
+### **M2 — Parametric Engine + Micro (Beat-Bins) + Choke + Polymeter**
+**Spec:** Euclid masks + rotation drift; per-layer probabilities; last-step; ratchets; open-hat offbeats; choke group; **swing + beat-bin micro**.  
+**Tests:**
+- **Swing:** with 0.55, odd 16ths delayed by `(ppq/8)*0.05` ticks.
+- **Beat-bins:** sampled micro offsets ∈ configured bins; RMS ≤ layer cap.
+- **Choke:** open-hat cut to closed-hat onset later in bar.
+- **Dispersion:** D_kick ≈ 0; D_hatC < D_hatO (if ratchets on).
+
+### **M3 — Conditions, Constraints & Density**
+**Spec:** PROB/PRE/NOT_PRE/FILL/every-N; mute-near-kick (±1–2); refractory; ghost pre-kick; **density clamp** per layer; void-step bias; hat thinning.  
+**Tests:**
+- `EVERY_N(n=4,offset=2)` fires bars 2,6,10,…
+- MUTE_NEAR_KICK ±1 removes snare on steps 3/5/11/13 when kicks present.
+- **Density:** per-layer onsets per bar within `target ± tol*16`.
+- **Hat thinning:** onset prob reduced near kicks (stat test over ≥64 bars).
+
+### **M4 — Scoring, Feedback, Modulators & Guardrails**
+**Spec:** compute E,S,D,H,T; feedback nudges parameters into target manifold; **long-horizon modulators** update per bar; **guardrails** enforce continuity and entrainment.  
+**Tests:**
+- Over last quarter of 64 bars: median **S** in [0.35, 0.55]; **E ≥ targets.E**.
+- **T_ms** per layer ≤ `targets.T_ms`.
+- **Continuity:** `|Δparam| ≤ max_delta_per_bar` for all modulated params.
+- **Rescue:** forcing E below guard triggers rescue (mock) and recovers in ≤ 8 bars.
+
+---
+
+## I. Pseudocode Stubs & Function Signatures
+
+```python
+# Euclid & rotation
+def build_euclid_mask(steps: int, fills: int, rot: int) -> np.ndarray: ...
+def apply_rotation(mask: np.ndarray, rot: int) -> np.ndarray: ...
+
+# Markov sampling (sync-biased)
+def sample_markov(prev_state: int, P: np.ndarray | None,
+                  step_metric_weight: float, sync_error: float,
+                  gain: float = 0.15, base_prob: float = 0.5) -> int: ...
+
+# Conditions
+def apply_conditions(step_idx: int, prev_fired: int,
+                     cond: StepCondition, context) -> bool: ...
+
+# Density clamp & void bias
+def enforce_density(mask: np.ndarray, target_ratio: float,
+                    tol: float, metric_w: np.ndarray) -> np.ndarray: ...
+
+# Microtiming
+def sample_beat_bin(profile: BeatBinProfile, rng) -> float: ...
+def apply_swing_and_micro(step_idx: int, base_tick: int,
+                          swing_percent: float | None, micro_ms: float,
+                          bpm: float, ppq: int) -> int: ...
+
+# Choke & Accent
+def choke_on(now_tick: int, group: int, active_by_group: dict) -> None: ...
+def apply_accent(global_step_1idx: int, vel: int, dur: int,
+                 accent: AccentProfile) -> tuple[int,int]: ...
+
+# Modulators & Guard
+def step_modulator(value: float, mod: LongHorizonModulator, bar_idx: int) -> float: ...
+def apply_guardrails(layers: dict[str, Layer], scores: Scores, guard: EntrainmentGuard) -> None: ...
+
+# Scores & feedback
+def compute_scores(piano_roll: dict[str,np.ndarray],
+                   micro_offsets_ms: dict[str,list[float]],
+                   ppq: int, bpm: float) -> Scores: ...
+def feedback_update(layers: dict[str, Layer],
+                    scores: Scores, targets: EvaluatorTargets,
+                    rng) -> dict[str, Layer]: ...
+
+# Rendering
+def render_bar(layers: dict[str, Layer], bar_idx: int, bpm: float, ppq: int, context) -> list[MidiEvent]: ...
+def write_midi(events: list[MidiEvent], ppq: int, bpm: float, out_path: str) -> None: ...
+```
+
+---
+
+## J. Example Config (concise, aesthetics-aligned)
+
+```json
+{
+  "bpm": 132,
+  "ppq": 1920,
+  "bars": 64,
+  "seed": 1234,
+  "targets": {"E": 0.8, "S": [0.35, 0.55], "D": 0.2, "H": [0.3, 0.6], "T_ms": 18},
+  "rotation_every_bars": 16,
+  "notes": {"kick":36, "hat_c":42, "hat_o":46, "snare":38, "clap":39},
+  "layers": {
+    "kick": {
+      "euclid":{"steps":16,"fills":4,"rot":0},
+      "refractory_steps":1,
+      "ghost_pre1_prob":0.12,
+      "vel_curve":[110,110,110,110],
+      "micro":{"micro_ms":0,"swing_percent":null,"max_abs_ms":10,
+               "beat_bins":{"bins_ms":[0],"probs":[1.0],"cap_ms":10}},
+      "density":{"target":0.25,"tolerance":0.0}
+    },
+    "hat_c": {
+      "euclid":{"steps":16,"fills":12,"rot":0},
+      "skip_near_kick_steps":1,
+      "skip_near_kick_prob_bias":-0.5,
+      "ratchet_prob":0.03,
+      "vel_pattern":[80,65,75,65],
+      "micro":{"micro_ms":-6,"swing_percent":0.55,"max_abs_ms":12,
+               "beat_bins":{"bins_ms":[-10,-6,-2,0],"probs":[0.4,0.35,0.2,0.05],"cap_ms":12}},
+      "density":{"target":0.75,"tolerance":0.05,"void_steps_1idx":[1,9],"void_bias":-0.2}
+    },
+    "hat_o": {
+      "offbeats_only":true,
+      "choke_on_hat_c":true,
+      "ratchet_prob":0.05,
+      "micro":{"micro_ms":0,"swing_percent":0.55,"max_abs_ms":10,
+               "beat_bins":{"bins_ms":[-2,0,2],"probs":[0.2,0.6,0.2],"cap_ms":10}},
+      "density":{"target":0.25,"tolerance":0.1}
+    },
+    "snare": {
+      "backbeat":true,
+      "displace_into_2_prob":0.08,
+      "vel_curve":[96,96],
+      "micro":{"micro_ms":8,"swing_percent":null,"max_abs_ms":15,
+               "beat_bins":{"bins_ms":[0,4,8,10],"probs":[0.1,0.2,0.4,0.3],"cap_ms":15}},
+      "density":{"target":0.125,"tolerance":0.05}
+    }
+  },
+  "accent":{"steps":[1,5,9,13],"prob":0.125,"velocity_scale":1.1,"length_scale":1.0},
+  "modulators":[
+    {"name":"hat_c_rotation","param_path":"layers.hat_c.params.rotation_rate_per_bar","mode":"random_walk","min_val":0.0,"max_val":0.125,"step_per_bar":0.01,"max_delta_per_bar":0.02},
+    {"name":"hat_thinning","param_path":"layers.hat_c.params.skip_near_kick_prob_bias","mode":"ou","min_val":-0.8,"max_val":0.0,"tau":32.0,"step_per_bar":0.02,"max_delta_per_bar":0.03},
+    {"name":"swing_drift","param_path":"layers.hat_c.micro.swing_percent","mode":"ou","min_val":0.51,"max_val":0.58,"tau":48.0,"step_per_bar":0.005,"max_delta_per_bar":0.01}
+  ],
+  "guard":{"min_E":0.78,"max_rot_rate":0.125,"kick_immutable":true}
+}
+```
+
+---
+
+## K. Development Checklist (what “done” means per milestone)
+
+| Milestone | Key Outputs | Aesthetics Safeguards |
+|---|---|---|
+| **M0** | MIDI write, metronome, seed control | N/A |
+| **M1** | Kick 4/4, Hat-C 16ths, Snare backbeat | E≥0.9, low S pre-controller |
+| **M2** | Euclid+rotation, polymeter, choke, beat-bins, swing | micro bins within caps; D relationships |
+| **M3** | Conditions, mute-near-kick, density clamp | densities within target±tol; thinning near kick |
+| **M4** | E,S,D,H,T metrics; feedback+modulators+guard | median S in band; E≥target; continuity (Δ≤cap) |
+
+---
+
+## L. Minimal Tips for Implementation
+
+- Keep **absolute ticks** in a single event list; sort by `(time, note_off before note_on)`; then delta-encode.  
+- Use a **context struct** per bar with: RNG, bar_idx, is_fill_bar, kick_mask, metric_weights, modulated params, guard.  
+- Prefer small changes; never jump parameters by > `max_delta_per_bar`.  
+- Collect micro offsets per layer to compute **T** and enforce caps.
+
+---

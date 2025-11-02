@@ -1,0 +1,8 @@
+{
+  "bpm": 132,
+  "ppq": 1920,
+  "bars": 8,
+  "seed": 1234,
+  "out": "out/metronome.mid"
+}
+
