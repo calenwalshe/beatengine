@@ -12,6 +12,7 @@ from .timebase import ticks_per_bar
 from .conditions import mask_from_steps, thin_probs_near_kick
 from .density import enforce_density
 from .modulate import Modulator, step_modulator
+from .accent import AccentProfile, apply_accent
 
 
 @dataclass
@@ -47,6 +48,7 @@ def run_session(
     targets: Optional[Targets] = None,
     guard: Optional[Guard] = None,
     inject_low_E_bars: Optional[Tuple[int, int]] = None,
+    accent_profile: Optional[AccentProfile] = None,
 ) -> RunResult:
     rng = rng or random.Random(1234)
     targets = targets or Targets()
@@ -185,6 +187,14 @@ def run_session(
         if swing - prev_swing < -swing_mod.max_delta_per_bar:
             swing = prev_swing - swing_mod.max_delta_per_bar
         swing = max(swing_mod.min_val, min(swing_mod.max_val, swing))
+
+        # Apply global accent if provided (pre-offset), then offset events into timeline
+        if accent_profile is not None:
+            union = apply_accent(union, ppq=ppq, profile=accent_profile, rng=rng)
+            # split back by note
+            def pick(note):
+                return [ev for ev in union if ev.note == note]
+            k, hc, ho, sn, cl = pick(36), pick(42), pick(46), pick(38), pick(39)
 
         # Offset events into timeline and accumulate
         offset = bar * bar_ticks
