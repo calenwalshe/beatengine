@@ -16,31 +16,31 @@ Status fields use GitHub-style checkboxes. Update incrementally as work proceeds
 - [ ] Docs updated (usage + assumptions)
 
 ### M1 — Deterministic Backbone
-- [ ] Spec captured in roadmap (M1)
-- [ ] Tests specified (kick 4/4, hat-c 16ths, snare backbeat, E/S bounds)
-- [ ] Backbone implemented
-- [ ] Tests implemented and passing
+- [x] Spec captured in roadmap (M1)
+- [x] Tests specified (kick 4/4, hat-c 16ths, snare backbeat, E/S bounds)
+- [x] Backbone implemented
+- [x] Tests implemented and passing
 - [ ] Docs updated
 
 ### M2 — Parametric Engine + Micro + Choke + Polymeter
-- [ ] Spec captured in roadmap (M2)
-- [ ] Tests specified (swing ticks, beat-bins bins/caps, choke, dispersion)
-- [ ] Features implemented (euclid+rotation, ratchets, choke, micro)
-- [ ] Tests implemented and passing
+- [x] Spec captured in roadmap (M2)
+- [x] Tests specified (swing ticks, beat-bins bins/caps, choke, dispersion)
+- [x] Features implemented (euclid+rotation, ratchets, choke, micro)
+- [x] Tests implemented and passing
 - [ ] Docs updated
 
 ### M3 — Conditions, Constraints & Density
-- [ ] Spec captured in roadmap (M3)
-- [ ] Tests specified (EVERY_N, mute-near-kick, density clamp, thinning)
-- [ ] Features implemented
-- [ ] Tests implemented and passing
+- [x] Spec captured in roadmap (M3)
+- [x] Tests specified (EVERY_N, mute-near-kick, density clamp, thinning)
+- [x] Features implemented
+- [x] Tests implemented and passing
 - [ ] Docs updated
 
 ### M4 — Scoring, Feedback, Modulators & Guardrails
-- [ ] Spec captured in roadmap (M4)
-- [ ] Tests specified (S band, E target, T_ms caps, continuity, rescue)
-- [ ] Features implemented (metrics, feedback, modulators, guards)
-- [ ] Tests implemented and passing
+- [x] Spec captured in roadmap (M4)
+- [x] Tests specified (S band, E target, T_ms caps, continuity, rescue)
+- [x] Features implemented (metrics, feedback, modulators, guards)
+- [x] Tests implemented and passing
 - [ ] Docs updated
 
 ---
@@ -70,7 +70,7 @@ Record every substantive roadmap change here. Use IDs like `RM-YYYYMMDD-##`.
 
 | Change ID | Date (YYYY-MM-DD) | Author | Section(s) | Summary | Impact | Link (PR/Commit) |
 |---|---|---|---|---|---|---|
-| RM- |  |  |  |  |  |  |
+| RM-20251103-01 | 2025-11-03 | techno-bot | H (M0–M4), E, D, G, F | Implemented M0–M4 with tests; added config CLI and Accent integration; rendered examples | tests-updated, features-added |  |
 
 Guidance:
 - Section(s): e.g., `C`, `D.2`, `H (M2 tests)`
