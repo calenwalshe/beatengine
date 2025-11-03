@@ -1,0 +1,17 @@
+{
+  "mode": "m4",
+  "bpm": 132,
+  "ppq": 1920,
+  "bars": 48,
+  "seed": 2024,
+  "out": "out/examples/m3_conditions.mid",
+  "layers": {
+    "hat_c": {
+      "fills": 12,
+      "conditions": [
+        {"kind": "PROB", "p": 0.7},
+        {"kind": "FILL", "n": 8, "offset": 8}
+      ]
+    }
+  }
+}

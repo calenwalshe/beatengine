@@ -1,0 +1,27 @@
+{
+  "mode": "m2",
+  "bpm": 132,
+  "ppq": 1920,
+  "bars": 32,
+  "seed": 42,
+  "out": "out/examples/m2_parametric.mid",
+  "layers": {
+    "kick": {"fills": 4, "rotation_rate_per_bar": 0.02, "ghost_pre1_prob": 0.15},
+    "hat_c": {
+      "fills": 12,
+      "swing_percent": 0.55,
+      "beat_bins_ms": [-10, -6, -2, 0],
+      "beat_bins_probs": [0.4, 0.35, 0.2, 0.05],
+      "beat_bin_cap_ms": 12
+    },
+    "hat_o": {
+      "fills": 16,
+      "offbeats_only": true,
+      "ratchet_prob": 0.1,
+      "beat_bins_ms": [-2, 0, 2],
+      "beat_bins_probs": [0.2, 0.6, 0.2],
+      "beat_bin_cap_ms": 10,
+      "choke_with_note": 42
+    }
+  }
+}
