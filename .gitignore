@@ -9,3 +9,4 @@ features/
 .DS_Store
 out/
 *.mid
+release/

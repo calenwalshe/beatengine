@@ -17,6 +17,26 @@ python -m techno_engine.run_config --config configs/m4_showcase.json
 python -m techno_engine.cli --config configs/m0_metronome.json
 ```
 
+## Try it now (macOS one-liner)
+
+Anyone on stock macOS with Python 3 installed can run the demo immediately:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mltechno/techno_rhythm_engine/main/scripts/bootstrap.sh | bash
+```
+
+The script:
+- Verifies `python3` is available (if not, it prints a link to the official installer)
+- Downloads the latest tarball from GitHub codeload
+- Creates a local virtual environment, installs `mido` from `requirements.txt`
+- Renders `configs/m4_showcase.json`, writing the MIDI (and CSV log) under `out/`
+
+To render a different config in one shot, override `DEMO_CONFIG`:
+
+```bash
+DEMO_CONFIG=configs/m2_parametric.json curl -fsSL https://raw.githubusercontent.com/mltechno/techno_rhythm_engine/main/scripts/bootstrap.sh | bash
+```
+
 The engine writes `.mid` files to the configured `out` path and, for M4 configs, can optionally emit a CSV log with per-bar metrics (`E`, `S`, hat density, entropy).
 
 ## Repository Layout
