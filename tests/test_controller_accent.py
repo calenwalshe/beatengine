@@ -15,8 +15,8 @@ def _step_of(ev, ppq):
 
 def test_controller_applies_accent_globally_on_kick_steps():
     bpm, ppq, bars = 132, 1920, 1
-    # Controller's kick pattern via Euclid(16,4) in this implementation hits steps 4,8,12,16 (1-indexed)
-    profile = AccentProfile(steps_1idx=[4, 8, 12, 16], prob=1.0, velocity_scale=1.2, length_scale=1.0)
+    # Quarter-note accents use steps 1,5,9,13 (1-indexed)
+    profile = AccentProfile(steps_1idx=[1, 5, 9, 13], prob=1.0, velocity_scale=1.2, length_scale=1.0)
     res = run_session(bpm=bpm, ppq=ppq, bars=bars, accent_profile=profile)
     kicks = res.events_by_layer["kick"]
     # kick baseline vel=110, after accent with scale 1.2 → min(127, 132) = 127
@@ -25,7 +25,7 @@ def test_controller_applies_accent_globally_on_kick_steps():
 
 def test_controller_accent_prob_zero_no_effect_on_kick():
     bpm, ppq, bars = 132, 1920, 1
-    profile = AccentProfile(steps_1idx=[4, 8, 12, 16], prob=0.0, velocity_scale=2.0, length_scale=2.0)
+    profile = AccentProfile(steps_1idx=[1, 5, 9, 13], prob=0.0, velocity_scale=2.0, length_scale=2.0)
     res = run_session(bpm=bpm, ppq=ppq, bars=bars, accent_profile=profile)
     kicks = res.events_by_layer["kick"]
     assert kicks and all(ev.vel == 110 for ev in kicks)

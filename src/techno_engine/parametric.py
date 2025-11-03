@@ -26,6 +26,9 @@ class LayerConfig:
     ratchet_prob: float = 0.0
     ratchet_repeat: int = 2
     choke_with_note: Optional[int] = None
+    rotation_rate_per_bar: float = 0.0
+    ghost_pre1_prob: float = 0.0
+    displace_into_2_prob: float = 0.0
 
 
 def build_layer(

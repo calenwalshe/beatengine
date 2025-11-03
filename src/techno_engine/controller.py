@@ -14,6 +14,7 @@ from .density import enforce_density
 from .modulate import Modulator, step_modulator
 from .accent import AccentProfile, apply_accent
 from .markov import DEFAULT_METRIC_WEIGHTS, update_probabilities, sample_markov_mask
+from .euclid import bjorklund, rotate
 
 
 @dataclass
@@ -28,6 +29,7 @@ class Targets:
 class Guard:
     min_E: float = 0.78
     max_rot_rate: float = 0.125
+    kick_immutable: bool = True
 
 
 @dataclass
@@ -44,6 +46,27 @@ class RunResult:
     rescues: int
 
 
+def _apply_kick_variations(mask: List[int], ghost_prob: float, displace_prob: float, rng: random.Random) -> None:
+    positions = [0, 4, 8, 12]
+    length = len(mask)
+    # Displacements first
+    for base in positions:
+        if mask[base] == 1 and rng.random() < displace_prob:
+            target = (base + 2) % length
+            mask[base] = 0
+            mask[target] = 1
+    # Ghost hits (pre-step)
+    for base in positions:
+        if mask[base] == 1 and rng.random() < ghost_prob:
+            ghost = (base - 1) % length
+            mask[ghost] = 1
+    # Ensure each quarter retains at least one strike nearby
+    for base in positions:
+        quarter = [(base + offset) % length for offset in (0, 1, -1)]
+        if not any(mask[idx] for idx in quarter):
+            mask[base] = 1
+
+
 def run_session(
     bpm: float,
     ppq: int,
@@ -53,6 +76,7 @@ def run_session(
     guard: Optional[Guard] = None,
     inject_low_E_bars: Optional[Tuple[int, int]] = None,
     accent_profile: Optional[AccentProfile] = None,
+    kick_layer_cfg: Optional[LayerConfig] = None,
 ) -> RunResult:
     rng = rng or random.Random(1234)
     targets = targets or Targets()
@@ -92,6 +116,18 @@ def run_session(
     hatc_settings = {"gain": 0.12, "delta": 0.03, "floor": 0.25, "ceil": 0.95, "stick": 0.4}
     hato_settings = {"gain": 0.10, "delta": 0.03, "floor": 0.05, "ceil": 0.75, "stick": 0.5}
 
+    kick_cfg = kick_layer_cfg or LayerConfig(
+        steps=16,
+        fills=4,
+        rot=1,
+        note=36,
+        velocity=110,
+        rotation_rate_per_bar=0.0,
+        ghost_pre1_prob=0.0,
+        displace_into_2_prob=0.0,
+    )
+    kick_rot_f = float(kick_cfg.rot)
+
     hatc_probs = [0.75] * 16
     hato_probs = [0.1] * 16
     for idx in range(16):
@@ -113,8 +149,24 @@ def run_session(
         rot_f = (rot_f + rot_rate) % 16
         rot = int(round(rot_f)) % 16
 
-        kick_cfg = LayerConfig(steps=16, fills=4, rot=0, note=36, velocity=110)
-        k = build_layer(bpm=bpm, ppq=ppq, bars=1, cfg=kick_cfg, rng=rng)
+        base_mask = bjorklund(kick_cfg.steps, kick_cfg.fills)
+        base_rot = kick_cfg.rot % kick_cfg.steps
+        if guard.kick_immutable:
+            kick_mask = rotate(base_mask, base_rot)
+        else:
+            kick_rot_f = (kick_rot_f + kick_cfg.rotation_rate_per_bar) % kick_cfg.steps
+            rot_int = int(round(kick_rot_f)) % kick_cfg.steps
+            kick_mask = rotate(base_mask, rot_int)
+            _apply_kick_variations(kick_mask, kick_cfg.ghost_pre1_prob, kick_cfg.displace_into_2_prob, rng)
+        kick_events = schedule_bar_from_mask(
+            bpm=bpm,
+            ppq=ppq,
+            bar_idx=0,
+            cfg=kick_cfg,
+            mask=kick_mask,
+            rng=rng,
+        )
+        k = kick_events
 
         def bar_step(ev: MidiEvent) -> int:
             within = ev.start_abs_tick % bar_ticks
@@ -224,7 +276,7 @@ def run_session(
         cl = build_layer(bpm=bpm, ppq=ppq, bars=1, cfg=cl_cfg, rng=rng)
 
         if inject_low_E_bars and inject_low_E_bars[0] <= bar <= inject_low_E_bars[1]:
-            hc.clear(); ho.clear(); sn.clear(); cl.clear()
+            k.clear(); hc.clear(); ho.clear(); sn.clear(); cl.clear()
 
         union = k + hc + ho + sn + cl
         mask = union_mask_for_bar(union, ppq)
