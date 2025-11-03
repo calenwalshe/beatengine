@@ -6,13 +6,14 @@ from statistics import median
 from typing import Dict, List, Optional, Tuple
 
 from .midi_writer import MidiEvent
-from .parametric import LayerConfig, build_layer, collect_closed_hat_ticks
+from .parametric import LayerConfig, build_layer, collect_closed_hat_ticks, schedule_bar_from_mask, apply_choke
 from .scores import compute_E_S_from_mask, micro_offsets_ms_for_layer, rms, union_mask_for_bar
 from .timebase import ticks_per_bar
 from .conditions import mask_from_steps, thin_probs_near_kick
 from .density import enforce_density
 from .modulate import Modulator, step_modulator
 from .accent import AccentProfile, apply_accent
+from .markov import DEFAULT_METRIC_WEIGHTS, update_probabilities, sample_markov_mask
 
 
 @dataclass
@@ -37,6 +38,9 @@ class RunResult:
     swing_series: List[float]
     thin_bias_series: List[float]
     rot_rate_series: List[float]
+    hatc_prob_series: List[List[float]]
+    hato_prob_series: List[List[float]]
+    rescue_bars: List[int]
     rescues: int
 
 
@@ -78,11 +82,26 @@ def run_session(
     swing_series: List[float] = []
     thin_series: List[float] = []
     rot_rate_series: List[float] = []
+    hatc_prob_series: List[List[float]] = []
+    hato_prob_series: List[List[float]] = []
     rescues = 0
+    rescue_bar_indices: List[int] = []
     rescue_next_bar_full = False
 
+    metric_weights = DEFAULT_METRIC_WEIGHTS
+    hatc_settings = {"gain": 0.12, "delta": 0.03, "floor": 0.25, "ceil": 0.95, "stick": 0.4}
+    hato_settings = {"gain": 0.10, "delta": 0.03, "floor": 0.05, "ceil": 0.75, "stick": 0.5}
+
+    hatc_probs = [0.75] * 16
+    hato_probs = [0.1] * 16
+    for idx in range(16):
+        if idx % 4 == 2:
+            hato_probs[idx] = 0.4
+    hatc_prev_state = 0
+    hato_prev_state = 0
+    sync_error_prev = 0.0
+
     for bar in range(bars):
-        # Update modulators
         prev_swing = swing
         prev_thin = thin_bias
         prev_rot_rate = rot_rate
@@ -94,93 +113,142 @@ def run_session(
         rot_f = (rot_f + rot_rate) % 16
         rot = int(round(rot_f)) % 16
 
-        # Post-feedback parameter log happens after E/S calculation and feedback clamps
-
-        # Build base layers for 1 bar
         kick_cfg = LayerConfig(steps=16, fills=4, rot=0, note=36, velocity=110)
-        hatc_cfg = LayerConfig(
-            steps=16, fills=12, rot=rot, note=42, velocity=80,
-            swing_percent=swing,
-            beat_bins_ms=[-10,-6,-2,0], beat_bins_probs=[0.4,0.35,0.2,0.05], beat_bin_cap_ms=12,
-        )
-        hato_cfg = LayerConfig(
-            steps=16, fills=16, rot=rot, note=46, velocity=80,
-            offbeats_only=True, ratchet_prob=0.06, ratchet_repeat=3,
-            swing_percent=swing,
-            beat_bins_ms=[-2,0,2], beat_bins_probs=[0.2,0.6,0.2], beat_bin_cap_ms=10,
-            choke_with_note=42,
-        )
-        sn_cfg = LayerConfig(steps=16, fills=2, rot=4, note=38, velocity=96)
-        cl_cfg = LayerConfig(steps=16, fills=2, rot=4, note=39, velocity=92)
-
         k = build_layer(bpm=bpm, ppq=ppq, bars=1, cfg=kick_cfg, rng=rng)
-        hc = build_layer(bpm=bpm, ppq=ppq, bars=1, cfg=hatc_cfg, rng=rng)
-        ch_map = collect_closed_hat_ticks(hc, ppq=ppq, closed_hat_note=42)
-        ho = build_layer(bpm=bpm, ppq=ppq, bars=1, cfg=hato_cfg, rng=rng, closed_hat_ticks_by_bar=ch_map)
-        sn = build_layer(bpm=bpm, ppq=ppq, bars=1, cfg=sn_cfg, rng=rng)
-        cl = build_layer(bpm=bpm, ppq=ppq, bars=1, cfg=cl_cfg, rng=rng)
 
-        # Optional test hook to force low E
-        if inject_low_E_bars and inject_low_E_bars[0] <= bar <= inject_low_E_bars[1]:
-            hc.clear(); ho.clear(); sn.clear(); cl.clear()
-
-        # Apply hat thinning via per-step probability mask near kicks
-        # Build masks
         def bar_step(ev: MidiEvent) -> int:
             within = ev.start_abs_tick % bar_ticks
             return int(within // step_ticks)
 
-        hat_mask = [0] * 16
-        for ev in hc:
-            hat_mask[bar_step(ev)] = 1
         kick_mask = [0] * 16
         for ev in k:
             kick_mask[bar_step(ev)] = 1
-        probs = thin_probs_near_kick(base_prob=1.0, steps=16, kick_mask=kick_mask, window=1, bias=thin_bias)
-        for i in range(16):
-            if hat_mask[i] == 1 and rng.random() >= probs[i]:
-                hat_mask[i] = 0
-        # density clamp ~ 0.7 ± 0.05 with metric preference away from kicks
-        metric_w = [1.0] * 16
-        for i in range(16):
-            if i in {0,4,8,12}:
-                metric_w[i] = 0.6
-        hat_mask = enforce_density(hat_mask, target_ratio=0.7, tol=0.05, metric_w=metric_w)
-        # rebuild hihat events using original timing of earliest event per step
-        by_step: Dict[int, List[MidiEvent]] = {}
-        for ev in hc:
-            by_step.setdefault(bar_step(ev), []).append(ev)
-        hc = []
-        for i, keep in enumerate(hat_mask):
-            if keep and i in by_step:
-                ev = sorted(by_step[i], key=lambda e: e.start_abs_tick)[0]
-                hc.append(ev)
 
-        # Compute E,S for this bar on union
+        if rescue_next_bar_full:
+            hatc_mask = [1] * 16
+            hatc_probs = [hatc_settings["ceil"]] * 16
+            hatc_prev_state = 0
+            rescue_next_bar_full = False
+        else:
+            hatc_probs = update_probabilities(
+                hatc_probs,
+                sync_error_prev,
+                metric_weights,
+                hatc_settings["gain"],
+                hatc_settings["delta"],
+                hatc_settings["floor"],
+                hatc_settings["ceil"],
+            )
+            hatc_mask, hatc_prev_state = sample_markov_mask(
+                hatc_probs,
+                rng,
+                hatc_prev_state,
+                offbeats_only=False,
+                stickiness=hatc_settings["stick"],
+                p_floor=hatc_settings["floor"],
+                p_ceil=hatc_settings["ceil"],
+            )
+        hatc_prob_series.append(hatc_probs.copy())
+
+        hat_mask = hatc_mask[:]
+        probs_thin = thin_probs_near_kick(base_prob=1.0, steps=16, kick_mask=kick_mask, window=1, bias=thin_bias)
+        for i in range(16):
+            if hat_mask[i] == 1 and rng.random() >= probs_thin[i]:
+                hat_mask[i] = 0
+        metric_w_density = [1.0] * 16
+        for i in {0, 4, 8, 12}:
+            metric_w_density[i] = 0.6
+        hat_mask = enforce_density(hat_mask, target_ratio=0.7, tol=0.05, metric_w=metric_w_density)
+        hatc_cfg = LayerConfig(
+            steps=16,
+            fills=12,
+            rot=rot,
+            note=42,
+            velocity=80,
+            swing_percent=swing,
+            beat_bins_ms=[-10, -6, -2, 0],
+            beat_bins_probs=[0.4, 0.35, 0.2, 0.05],
+            beat_bin_cap_ms=12,
+        )
+        hc = schedule_bar_from_mask(bpm=bpm, ppq=ppq, bar_idx=0, cfg=hatc_cfg, mask=hat_mask, rng=rng)
+
+        hato_probs = update_probabilities(
+            hato_probs,
+            sync_error_prev,
+            metric_weights,
+            hato_settings["gain"],
+            hato_settings["delta"],
+            hato_settings["floor"],
+            hato_settings["ceil"],
+        )
+        hato_mask, hato_prev_state = sample_markov_mask(
+            hato_probs,
+            rng,
+            hato_prev_state,
+            offbeats_only=True,
+            stickiness=hato_settings["stick"],
+            p_floor=hato_settings["floor"],
+            p_ceil=hato_settings["ceil"],
+        )
+        hato_prob_series.append(hato_probs.copy())
+        ho_mask = hato_mask[:]
+        probs_open = thin_probs_near_kick(base_prob=1.0, steps=16, kick_mask=kick_mask, window=1, bias=thin_bias * 0.3)
+        for i in range(16):
+            if ho_mask[i] == 1 and rng.random() >= probs_open[i]:
+                ho_mask[i] = 0
+        metric_void = [1.0 if idx % 4 == 2 else 0.0 for idx in range(16)]
+        ho_mask = enforce_density(ho_mask, target_ratio=0.25, tol=0.1, metric_w=metric_void)
+        for idx in range(16):
+            if idx % 4 != 2:
+                ho_mask[idx] = 0
+        hato_cfg = LayerConfig(
+            steps=16,
+            fills=16,
+            rot=rot,
+            note=46,
+            velocity=80,
+            offbeats_only=True,
+            ratchet_prob=0.06,
+            ratchet_repeat=3,
+            swing_percent=swing,
+            beat_bins_ms=[-2, 0, 2],
+            beat_bins_probs=[0.2, 0.6, 0.2],
+            beat_bin_cap_ms=10,
+            choke_with_note=42,
+        )
+        ho = schedule_bar_from_mask(bpm=bpm, ppq=ppq, bar_idx=0, cfg=hato_cfg, mask=ho_mask, rng=rng)
+
+        sn_cfg = LayerConfig(steps=16, fills=2, rot=4, note=38, velocity=96)
+        cl_cfg = LayerConfig(steps=16, fills=2, rot=4, note=39, velocity=92)
+        sn = build_layer(bpm=bpm, ppq=ppq, bars=1, cfg=sn_cfg, rng=rng)
+        cl = build_layer(bpm=bpm, ppq=ppq, bars=1, cfg=cl_cfg, rng=rng)
+
+        if inject_low_E_bars and inject_low_E_bars[0] <= bar <= inject_low_E_bars[1]:
+            hc.clear(); ho.clear(); sn.clear(); cl.clear()
+
         union = k + hc + ho + sn + cl
         mask = union_mask_for_bar(union, ppq)
         E, S = compute_E_S_from_mask(mask)
 
-        # Guard: if E below minimum, trigger rescue
+        S_mid = 0.5 * (targets.S_low + targets.S_high)
+        sync_error = S_mid - S
+
         if E < guard.min_E:
             rescues += 1
-            # rescue actions: straighten swing, reset rotations, lighten thinning
             swing = 0.5
             rot_f = 0.0
             thin_bias = -0.2
             rescue_next_bar_full = True
+            sync_error = 0.0
+            rescue_bar_indices.append(bar)
 
-        # Feedback: nudge thin_bias toward S target and small swing adjustment
-        S_mid = 0.5 * (targets.S_low + targets.S_high)
-        sync_error = S_mid - S
-        thin_bias += 0.1 * sync_error  # increase bias (less negative) when S too low, decrease when high
-        # clamp continuity for thin_bias and swing relative to previous values
+        thin_bias += 0.1 * sync_error
         if thin_bias - prev_thin > thin_mod.max_delta_per_bar:
             thin_bias = prev_thin + thin_mod.max_delta_per_bar
         if thin_bias - prev_thin < -thin_mod.max_delta_per_bar:
             thin_bias = prev_thin - thin_mod.max_delta_per_bar
         thin_bias = max(thin_mod.min_val, min(thin_mod.max_val, thin_bias))
-        # small swing dampening
+
         swing += 0.02 * (0.545 - swing)
         if swing - prev_swing > swing_mod.max_delta_per_bar:
             swing = prev_swing + swing_mod.max_delta_per_bar
@@ -188,28 +256,18 @@ def run_session(
             swing = prev_swing - swing_mod.max_delta_per_bar
         swing = max(swing_mod.min_val, min(swing_mod.max_val, swing))
 
-        # Apply global accent if provided (pre-offset), then offset events into timeline
         if accent_profile is not None:
             union = apply_accent(union, ppq=ppq, profile=accent_profile, rng=rng)
-            # split back by note
-            def pick(note):
+
+            def pick(note: int) -> List[MidiEvent]:
                 return [ev for ev in union if ev.note == note]
+
             k, hc, ho, sn, cl = pick(36), pick(42), pick(46), pick(38), pick(39)
 
-        # Offset events into timeline and accumulate
         offset = bar * bar_ticks
-        # If a rescue was triggered in previous bar, force a full 16-step hat layer this bar for recovery
-        if rescue_next_bar_full:
-            rescue_next_bar_full = False
-            hc = build_layer(
-                bpm=bpm, ppq=ppq, bars=1,
-                cfg=LayerConfig(steps=16, fills=16, rot=0, note=42, velocity=80, swing_percent=swing,
-                                beat_bins_ms=[-10,-6,-2,0], beat_bins_probs=[0.4,0.35,0.2,0.05], beat_bin_cap_ms=12),
-                rng=rng
-            )
-
         for ev in k + hc + ho + sn + cl:
             ev.start_abs_tick += offset
+
         events_kick.extend(k)
         events_hatc.extend(hc)
         events_hato.extend(ho)
@@ -221,6 +279,10 @@ def run_session(
         swing_series.append(swing)
         thin_series.append(thin_bias)
         rot_rate_series.append(rot_rate)
+        sync_error_prev = sync_error
+
+    closed_hat_map = collect_closed_hat_ticks(events_hatc, ppq=ppq, closed_hat_note=42)
+    events_hato = apply_choke(events_hato, ppq=ppq, closed_hat_ticks_by_bar=closed_hat_map)
 
     return RunResult(
         events_by_layer={
@@ -235,5 +297,8 @@ def run_session(
         swing_series=swing_series,
         thin_bias_series=thin_series,
         rot_rate_series=rot_rate_series,
+        hatc_prob_series=hatc_prob_series,
+        hato_prob_series=hato_prob_series,
+        rescue_bars=rescue_bar_indices,
         rescues=rescues,
     )

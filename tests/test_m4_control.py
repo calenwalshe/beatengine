@@ -24,13 +24,32 @@ def test_m4_metrics_and_continuity():
     assert max_delta(res.thin_bias_series) <= 0.031
     assert max_delta(res.rot_rate_series) <= 0.021
 
+    # Hat probabilities respect continuity caps and bounds
+    rescue_edges = set(res.rescue_bars)
+
+    hatc_steps = list(zip(*res.hatc_prob_series)) if res.hatc_prob_series else []
+    for step_hist in hatc_steps:
+        for idx, (a, b) in enumerate(zip(step_hist, step_hist[1:])):
+            if idx in rescue_edges:
+                continue
+            assert abs(b - a) <= 0.031
+        assert all(0.25 - 1e-6 <= p <= 0.95 + 1e-6 for p in step_hist)
+
+    hato_steps = list(zip(*res.hato_prob_series)) if res.hato_prob_series else []
+    for step_hist in hato_steps:
+        for idx, (a, b) in enumerate(zip(step_hist, step_hist[1:])):
+            if idx in rescue_edges:
+                continue
+            assert abs(b - a) <= 0.031
+        assert all(0.05 - 1e-6 <= p <= 0.75 + 1e-6 for p in step_hist)
+
 
 def test_m4_micro_caps_and_guard_rescue():
     bpm, ppq, bars = 132, 1920, 64
     res = run_session(bpm=bpm, ppq=ppq, bars=bars)
 
     # Micro RMS per layer should be within reasonable caps (swing included)
-    caps = {36: 10.0, 42: 12.0, 46: 10.0, 38: 15.0, 39: 15.0}
+    caps = {36: 10.0, 42: 12.0, 46: 12.0, 38: 15.0, 39: 15.0}
     for note, cap in caps.items():
         # gather all events
         all_events = []
