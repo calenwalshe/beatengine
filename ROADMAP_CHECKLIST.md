@@ -71,6 +71,7 @@ Record every substantive roadmap change here. Use IDs like `RM-YYYYMMDD-##`.
 | Change ID | Date (YYYY-MM-DD) | Author | Section(s) | Summary | Impact | Link (PR/Commit) |
 |---|---|---|---|---|---|---|
 | RM-20251103-01 | 2025-11-03 | techno-bot | H (M0–M4), E, D, G, F | Implemented M0–M4 with tests; added config CLI and Accent integration; rendered examples | tests-updated, features-added |  |
+| RM-20251103-02 | 2025-11-03 | techno-bot | D.3, E, H (M4 tests) | Added sync-biased Markov generator, controller integration, and probabilistic tests | algorithm-change, tests-updated |  |
 
 Guidance:
 - Section(s): e.g., `C`, `D.2`, `H (M2 tests)`
