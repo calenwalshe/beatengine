@@ -73,6 +73,7 @@ Record every substantive roadmap change here. Use IDs like `RM-YYYYMMDD-##`.
 | RM-20251103-01 | 2025-11-03 | techno-bot | H (M0–M4), E, D, G, F | Implemented M0–M4 with tests; added config CLI and Accent integration; rendered examples | tests-updated, features-added |  |
 | RM-20251103-02 | 2025-11-03 | techno-bot | D.3, E, H (M4 tests) | Added sync-biased Markov generator, controller integration, and probabilistic tests | algorithm-change, tests-updated |  |
 | RM-20251103-03 | 2025-11-03 | techno-bot | C (GeneratorParams), D.1, E | Kick variation (ghosts/displacements/rotation), guard update, new tests and showcase | algorithm-change, tests-updated |  |
+| RM-20251103-04 | 2025-11-03 | techno-bot | A.4, D.4, H (M3/M4) | Implemented PROB/PRE/FILL/EVERY_N condition stack with unit tests and demos | algorithm-change, tests-updated |  |
 
 Guidance:
 - Section(s): e.g., `C`, `D.2`, `H (M2 tests)`
