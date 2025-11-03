@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import random
+from dataclasses import dataclass
+from enum import Enum, auto
 from typing import Iterable, List, Sequence
 
 
@@ -77,3 +79,64 @@ def thin_probs_near_kick(
             idx = (k + d) % steps
             probs[idx] = max(0.0, min(1.0, probs[idx] + bias))
     return probs
+
+
+def apply_step_conditions(mask: List[int], bar_idx: int, conditions: Sequence[StepCondition], rng: random.Random) -> List[int]:
+    if not conditions:
+        return mask
+    out = mask[:]
+    prev_on = 0
+    prev_raw = 0
+    bar_1idx = bar_idx + 1
+    for step in range(len(out)):
+        raw_val = mask[step]
+        if out[step] == 0 and raw_val == 0:
+            prev_on = 0
+            prev_raw = raw_val
+            continue
+        allowed = True
+        for cond in conditions:
+            result = True
+            if cond.kind == CondType.PROB:
+                result = rng.random() < cond.p
+            elif cond.kind == CondType.PRE:
+                result = prev_raw == 1
+            elif cond.kind == CondType.NOT_PRE:
+                result = prev_raw == 0
+            elif cond.kind == CondType.FILL:
+                if cond.n <= 0:
+                    result = False
+                else:
+                    result = every_n(bar_1idx, cond.n, cond.offset)
+            elif cond.kind == CondType.EVERY_N:
+                if cond.n <= 0:
+                    result = False
+                else:
+                    result = every_n(bar_1idx, cond.n, cond.offset)
+            if cond.negate:
+                result = not result
+            if not result:
+                allowed = False
+                break
+        if not allowed:
+            out[step] = 0
+            prev_on = 0
+        else:
+            prev_on = 1
+        prev_raw = raw_val
+    return out
+class CondType(Enum):
+    PROB = auto()
+    PRE = auto()
+    NOT_PRE = auto()
+    FILL = auto()
+    EVERY_N = auto()
+
+
+@dataclass
+class StepCondition:
+    kind: CondType
+    p: float = 1.0
+    n: int = 0
+    offset: int = 0
+    negate: bool = False

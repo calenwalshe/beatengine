@@ -9,7 +9,7 @@ from .midi_writer import MidiEvent
 from .parametric import LayerConfig, build_layer, collect_closed_hat_ticks, schedule_bar_from_mask, apply_choke
 from .scores import compute_E_S_from_mask, micro_offsets_ms_for_layer, rms, union_mask_for_bar
 from .timebase import ticks_per_bar
-from .conditions import mask_from_steps, thin_probs_near_kick
+from .conditions import mask_from_steps, thin_probs_near_kick, apply_step_conditions
 from .density import enforce_density
 from .modulate import Modulator, step_modulator
 from .accent import AccentProfile, apply_accent
@@ -203,6 +203,7 @@ def run_session(
         hatc_prob_series.append(hatc_probs.copy())
 
         hat_mask = hatc_mask[:]
+        hat_mask = apply_step_conditions(hat_mask, bar, [], rng)
         probs_thin = thin_probs_near_kick(base_prob=1.0, steps=16, kick_mask=kick_mask, window=1, bias=thin_bias)
         for i in range(16):
             if hat_mask[i] == 1 and rng.random() >= probs_thin[i]:
@@ -244,6 +245,7 @@ def run_session(
         )
         hato_prob_series.append(hato_probs.copy())
         ho_mask = hato_mask[:]
+        ho_mask = apply_step_conditions(ho_mask, bar, [], rng)
         probs_open = thin_probs_near_kick(base_prob=1.0, steps=16, kick_mask=kick_mask, window=1, bias=thin_bias * 0.3)
         for i in range(16):
             if ho_mask[i] == 1 and rng.random() >= probs_open[i]:

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 from .euclid import bjorklund, rotate
 from .micro import apply_swing_and_micro, sample_beat_bin
+from .conditions import StepCondition, apply_step_conditions
 from .midi_writer import MidiEvent
 from .timebase import ticks_per_bar
 
@@ -29,6 +30,7 @@ class LayerConfig:
     rotation_rate_per_bar: float = 0.0
     ghost_pre1_prob: float = 0.0
     displace_into_2_prob: float = 0.0
+    conditions: List[StepCondition] = field(default_factory=list)
 
 
 def build_layer(
@@ -41,10 +43,15 @@ def build_layer(
 ) -> List[MidiEvent]:
     rng = rng or random
     base = bjorklund(cfg.steps, cfg.fills)
-    mask = rotate(base, cfg.rot)
+    rot_f = float(cfg.rot)
     events: List[MidiEvent] = []
 
     for bar in range(bars):
+        if cfg.rotation_rate_per_bar != 0.0 and bar > 0:
+            rot_f = (rot_f + cfg.rotation_rate_per_bar) % cfg.steps
+        rot_int = int(round(rot_f)) % cfg.steps
+        mask = rotate(base, rot_int)
+        mask = apply_step_conditions(mask, bar, cfg.conditions, rng)
         events.extend(schedule_bar_from_mask(bpm, ppq, bar, cfg, mask, rng))
 
     if cfg.choke_with_note is not None and closed_hat_ticks_by_bar:
