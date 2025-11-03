@@ -17,6 +17,13 @@ class Modulator:
     phase: float = 0.0
 
 
+@dataclass
+class ParamModSpec:
+    name: str
+    param_path: str
+    modulator: Modulator
+
+
 def step_modulator(value: float, mod: Modulator, bar_idx: int) -> float:
     if mod.mode == "random_walk":
         delta = random.uniform(-mod.step_per_bar, mod.step_per_bar)
@@ -38,4 +45,3 @@ def step_modulator(value: float, mod: Modulator, bar_idx: int) -> float:
     if abs(newv - value) > mod.max_delta_per_bar:
         newv = value + math.copysign(mod.max_delta_per_bar, newv - value)
     return newv
-

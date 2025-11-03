@@ -70,6 +70,10 @@ def shannon_entropy(mask: Sequence[int]) -> float:
     return - (p * math.log2(p) + (1 - p) * math.log2(1 - p))
 
 
+def entropy_from_mask(mask: Sequence[int]) -> float:
+    return shannon_entropy(mask)
+
+
 def micro_offsets_ms_for_layer(events: List[MidiEvent], ppq: int, bpm: float, note: int, steps: int = 16) -> List[float]:
     """Approximate per-event micro offsets by comparing to nearest 16th grid point.
     Includes swing contribution; suitable for RMS checks against caps.

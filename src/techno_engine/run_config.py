@@ -47,7 +47,22 @@ def main(argv: List[str] | None = None) -> int:
         ev_cl = build_layer(cfg.bpm, cfg.ppq, cfg.bars, clap)
         write_midi(list(chain(ev_k, ev_hc, ev_ho, ev_sn, ev_cl)), cfg.ppq, cfg.bpm, cfg.out)
     elif mode == "m4":
-        res = run_session(bpm=cfg.bpm, ppq=cfg.ppq, bars=cfg.bars)
+        rng = random.Random(cfg.seed)
+        res = run_session(
+            bpm=cfg.bpm,
+            ppq=cfg.ppq,
+            bars=cfg.bars,
+            rng=rng,
+            targets=cfg.targets,
+            guard=cfg.guard,
+            kick_layer_cfg=cfg.kick,
+            hat_c_cfg=cfg.hat_c,
+            hat_o_cfg=cfg.hat_o,
+            snare_cfg=cfg.snare,
+            clap_cfg=cfg.clap,
+            param_mods=cfg.modulators,
+            log_path=cfg.log_path,
+        )
         all_events = list(chain.from_iterable(res.events_by_layer.values()))
         write_midi(all_events, cfg.ppq, cfg.bpm, cfg.out)
     else:
@@ -59,4 +74,3 @@ def main(argv: List[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
