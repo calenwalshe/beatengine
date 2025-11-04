@@ -100,12 +100,30 @@ User message: the natural‑language prompt.
 
 ## 5) Milestones (Development Plan)
 
+Progress Checklist (by milestone)
+- [ ] M0 — Skeleton & Local Commands
+- [ ] M1 — Tool Layer + Sandbox
+- [ ] M2 — Orchestrator & Function Calling (mocked LLM)
+- [ ] M3 — OpenAI Integration
+- [ ] M4 — Phrase Generators & Summaries
+- [ ] M5 — UX Polish & Session State
+- [ ] M6 — Packaging & One‑liner
+- [ ] M7 — CI & Release
+
 M0 — Skeleton & Local Commands
 - Files:
   - `src/techno_engine/terminal/app.py` (REPL: `techno> `, `:help`, `:quit`)
   - `src/techno_engine/terminal/settings.py` (loads `OPENAI_API_KEY`, model)
 - Behavior: Local help/about; no LLM calls yet.
-- Tests: REPL parses `:quit`, `:help` and exits cleanly.
+- Checklist:
+  - [ ] Create REPL prompt with local `:help`, `:quit`, `:about`
+  - [ ] Settings loader for `OPENAI_API_KEY` and model defaults
+  - [ ] Graceful shutdown and error messages
+  - [ ] Unit tests implemented (see below)
+- Unit tests:
+  - [ ] REPL parses `:help` and prints usage
+  - [ ] `:quit` exits cleanly (status 0)
+  - [ ] No LLM dependency in M0 tests
 
 M1 — Tool Layer + Sandbox
 - Files:
@@ -114,46 +132,86 @@ M1 — Tool Layer + Sandbox
   - `src/techno_engine/terminal/schemas.py` (Pydantic models)
 - Tools implemented: render_session, create/list/read/write config, list_examples, help.
 - Clamp ranges inside validation.
-- Tests:
-  - Writes only inside `configs/` and `out/`.
-  - render_session with inline config → `.mid` created.
-  - create_config → file exists; invalid JSON rejected.
+- Checklist:
+  - [ ] Implement `tools.py` functions with Pydantic validation
+  - [ ] Implement `fs_sandbox.py` safe path join/block traversal
+  - [ ] Implement `schemas.py` (EngineConfigSubset, tool inputs)
+  - [ ] Unit tests implemented (see below)
+- Unit tests:
+  - [ ] Writes happen only under `configs/` and `out/`
+  - [ ] render_session with inline config → `.mid` created
+  - [ ] create_config writes file; invalid JSON rejected
+  - [ ] list_configs/list_examples return expected items
 
 M2 — Orchestrator & Function Calling (mocked LLM)
 - Files:
   - `src/techno_engine/terminal/orchestrator.py` (message loop; tool registry; retries)
   - `src/techno_engine/terminal/ai_client.py` (interface; mockable)
 - Behavior: Given a user input, orchestrator asks LLM; executes returned tool calls; short final reply.
-- Tests (mock):
-  - “make an urgent 64‑bar groove” → calls render_phrase; returns path.
-  - off‑domain request → refusal + help.
-  - tool input invalid → LLM retries with corrected args (simulate).
+- Checklist:
+  - [ ] Orchestrator routes prompts → LLM → tool calls → final reply
+  - [ ] AI client mock with function-calling shim
+  - [ ] Retry on tool validation errors (bounded attempts)
+  - [ ] Unit tests implemented (see below)
+- Unit tests (mocked LLM):
+  - [ ] “make an urgent 64‑bar groove” → render_phrase called; returns `.mid` path
+  - [ ] Off‑domain request → polite refusal + help text
+  - [ ] Invalid tool args → model retries with corrected args
 
 M3 — OpenAI Integration
 - Implement real Chat Completions with tool calling.
 - Secrets: `OPENAI_API_KEY` via environment variable; no logs of secrets.
 - Timeouts and backoff.
-- Tests: mark network tests optional; core tests remain mocked.
+- Checklist:
+  - [ ] Wire OpenAI Chat Completions with tool calling
+  - [ ] Add timeouts and exponential backoff
+  - [ ] Feature flag for network tests
+  - [ ] Unit/integration tests implemented (see below)
+- Tests:
+  - [ ] Mocked tests remain green
+  - [ ] Optional network smoke (skipped in CI by default)
 
 M4 — Phrase Generators & Summaries
 - Expose `render_phrase` styles (e.g., hard‑evolving, urgent) with clamped options.
 - Server‑side summary (no model internals): BPM, bars, a few high‑level adjectives.
-- Tests: `render_phrase` returns `.mid`, correct phrase length, summary contains style + bpm.
+- Checklist:
+  - [ ] Implement `render_phrase` styles and clamps
+  - [ ] Add summary generator (bpm/bars/adjectives)
+  - [ ] Unit tests implemented (see below)
+- Unit tests:
+  - [ ] `render_phrase` returns `.mid`
+  - [ ] Phrase length matches bars; summary mentions style + bpm
 
 M5 — UX Polish & Session State
 - Add `:seed`, `:bpm`, `:bars` commands to set defaults; tools automatically inherit.
 - Add `:history` (last N actions) and `:paths` (show output folder).
 - Trim outputs to paths + one‑liners.
-- Tests: verify changes persist across requests within the session.
+- Checklist:
+  - [ ] Session defaults store & retrieval
+  - [ ] `:history` and `:paths` commands
+  - [ ] Consistent one‑line summaries
+  - [ ] Unit tests implemented (see below)
+- Unit tests:
+  - [ ] Changes to defaults persist across multiple requests
+  - [ ] History shows recent tool calls; paths list output dir(s)
 
 M6 — Packaging & One‑liner
 - `entry_points` console script (`techno`).
 - README section with one‑liner to start the REPL.
-- Smoke test: run `techno`, ask for an example; it renders.
+- Checklist:
+  - [ ] Add console script entry point `techno`
+  - [ ] Update README with “Terminal AI” and examples
+  - [ ] Unit tests implemented (see below)
+- Tests:
+  - [ ] Smoke: run `techno`, request an example, `.mid` created
 
 M7 (Optional) — CI & Release
 - CI job that runs unit tests and a mocked orchestrator test; optional macOS smoke job.
 - Tag a release and publish instructions.
+- Checklist:
+  - [ ] CI runs unit tests (mocked LLM)
+  - [ ] Optional macOS smoke job for REPL + tool call
+  - [ ] Tag and publish release; include bootstrap instructions
 
 ---
 
@@ -274,4 +332,3 @@ Usage:
 - REPL operates end‑to‑end with real LLM → tool calls → `.mid` outputs.
 - Domain lock verified by tests; no writes outside sandbox.
 - README documents how to start and an example flow.
-
