@@ -21,9 +21,13 @@ class OrchestratorResult:
 
 
 class Orchestrator:
-    def __init__(self, client: AIClient) -> None:
+    def __init__(self, client: AIClient, system_prompt: Optional[str] = None, developer_prompt: Optional[str] = None) -> None:
         self.client = client
         self.messages: List[Dict[str, Any]] = []
+        if system_prompt:
+            self.messages.append({"role": "system", "content": system_prompt})
+        if developer_prompt:
+            self.messages.append({"role": "system", "content": developer_prompt})
 
     def _tool_specs(self) -> List[Dict[str, Any]]:
         return [
@@ -83,4 +87,3 @@ class Orchestrator:
         if name == "help_text":
             return {"usage": toolmod.help_text().usage}
         raise ValueError(f"unknown tool: {name}")
-

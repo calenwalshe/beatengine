@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from typing import Optional
+
+from .settings import load_settings
+from .orchestrator import Orchestrator
+from .ai_openai import OpenAIHTTPClient
 
 
 WELCOME = "Techno Assistant (terminal) — type :help for commands"
@@ -16,6 +21,7 @@ class Reply:
 class TerminalApp:
     def __init__(self) -> None:
         self.running = True
+        self._orch: Optional[Orchestrator] = None
 
     def handle_line(self, line: str) -> Reply:
         s = (line or "").strip()
@@ -29,8 +35,12 @@ class TerminalApp:
             return Reply("ok", self._help_text())
         if s in (":about", ":a"):
             return Reply("ok", "Techno Assistant — terminal UI for generating techno MIDI via sandboxed tools.")
-        # M0: no LLM yet — nudge user to local help
-        return Reply("ok", "(M0) No AI connected yet. Try :help or describe what you want (will route to AI in M1).")
+        # If API key present, route to orchestrator (M3); else M0 message
+        orch = self._get_orchestrator()
+        if orch is None:
+            return Reply("ok", "No AI connected. Set OPENAI_API_KEY or .env OPENAI_API_KEY=... then retry. Try :help.")
+        res = orch.process(s)
+        return Reply("ok", res.text)
 
     def _help_text(self) -> str:
         return (
@@ -58,7 +68,34 @@ def repl(stdin = sys.stdin, stdout = sys.stdout) -> int:
             break
     return 0
 
+def _system_prompt() -> str:
+    return (
+        "You are Techno Assistant, a terminal-only helper for generating techno MIDI via strict tools. "
+        "Stay in domain: groove generation, configs, rendering, and usage help. "
+        "Use tools only. Never run code/shell or browse. If asked off-domain, refuse politely and suggest a domain action. "
+        "When acting, prefer the simplest tool path. Keep replies concise and include resulting file paths."
+    )
+
+def _developer_prompt() -> str:
+    return (
+        "Tools available: render_session, create_config, list_configs, read_config, write_config, list_examples, help_text."
+    )
+
+def _build_orchestrator() -> Optional[Orchestrator]:
+    s = load_settings()
+    if not s.openai_api_key:
+        return None
+    client = OpenAIHTTPClient(api_key=s.openai_api_key, model=s.model)
+    return Orchestrator(client, system_prompt=_system_prompt(), developer_prompt=_developer_prompt())
+
+def TerminalApp__get_orchestrator(self) -> Optional[Orchestrator]:
+    if self._orch is None:
+        self._orch = _build_orchestrator()
+    return self._orch
+
+# Bind method to class without changing structure
+TerminalApp._get_orchestrator = TerminalApp__get_orchestrator
+
 
 if __name__ == "__main__":
     raise SystemExit(repl())
-
