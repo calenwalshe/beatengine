@@ -4,6 +4,13 @@ import json
 import urllib.request
 import urllib.error
 from typing import Any, Dict, List
+import ssl
+try:  # Prefer certifi bundle for broader CA support
+    import certifi  # type: ignore
+    _HAS_CERTIFI = True
+except Exception:  # pragma: no cover
+    certifi = None  # type: ignore
+    _HAS_CERTIFI = False
 
 from .ai_client import AIClient
 
@@ -24,8 +31,7 @@ class OpenAIHTTPClient(AIClient):
                     "function": {
                         "name": t.get("name"),
                         "description": t.get("description", ""),
-                        # Minimal schema; tool will validate inputs server-side
-                        "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
+                        "parameters": t.get("parameters", {"type": "object", "properties": {}, "additionalProperties": True}),
                     },
                 }
                 for t in tools
@@ -38,15 +44,18 @@ class OpenAIHTTPClient(AIClient):
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self.api_key}",
+                "OpenAI-Beta": "tools=true",
             },
             method="POST",
         )
+        # Use a CA bundle with certifi when available to avoid local trust store issues
+        context = ssl.create_default_context(cafile=certifi.where()) if _HAS_CERTIFI else ssl.create_default_context()
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(req, timeout=self.timeout, context=context) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
-            # Return a text response so the orchestrator can surface the error
-            return {"type": "text", "text": f"OpenAI error: {e.code} {e.reason}"}
+            detail = e.read().decode("utf-8", errors="ignore") if hasattr(e, "read") else ""
+            return {"type": "text", "text": f"OpenAI error: {e.code} {e.reason}: {detail}"}
         except Exception as e:  # timeout, network, etc.
             return {"type": "text", "text": f"OpenAI error: {e}"}
 
@@ -62,7 +71,12 @@ class OpenAIHTTPClient(AIClient):
                 args = json.loads(arg_str)
             except Exception:
                 args = {}
-            return {"type": "tool_call", "name": name, "args": args}
+            return {
+                "type": "tool_call",
+                "name": name,
+                "args": args,
+                "args_json": arg_str,
+                "tool_call_id": call.get("id"),
+            }
         content = msg.get("content") or ""
         return {"type": "text", "text": content}
-

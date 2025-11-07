@@ -1,0 +1,16 @@
+{
+  "mode": "m4",
+  "bpm": 95,
+  "ppq": 1920,
+  "bars": 16,
+  "seed": 905,
+  "out": "out/low_bpm_95.mid",
+  "guard": {"min_E": 0.7, "max_rot_rate": 0.1, "kick_immutable": false},
+  "targets": {"S_low": 0.35, "S_high": 0.6, "hat_density_target": 0.65, "hat_density_tol": 0.05},
+  "layers": {
+    "kick": {"rotation_rate_per_bar": 0.03, "ghost_pre1_prob": 0.25, "displace_into_2_prob": 0.12},
+    "hat_c": {"steps": 16, "fills": 12, "swing_percent": 0.56},
+    "hat_o": {"steps": 16, "fills": 16, "offbeats_only": true, "ratchet_prob": 0.1, "choke_with_note": 42}
+  }
+}
+

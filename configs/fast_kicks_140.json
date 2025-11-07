@@ -1,0 +1,22 @@
+{
+  "mode": "m4",
+  "bpm": 140,
+  "ppq": 1920,
+  "bars": 64,
+  "seed": 20251103,
+  "out": "out/fast_kicks_140.mid",
+  "guard": { "kick_immutable": false, "min_E": 0.75, "max_rot_rate": 0.125 },
+  "layers": {
+    "kick": {
+      "steps": 16,
+      "fills": 8,
+      "rot": 1,
+      "note": 36,
+      "velocity": 115,
+      "rotation_rate_per_bar": 0.0625,
+      "ghost_pre1_prob": 0.2,
+      "displace_into_2_prob": 0.1
+    }
+  }
+}
+

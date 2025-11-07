@@ -39,6 +39,7 @@ class RenderSessionOutput:
     bpm: float
     bars: int
     summary: str
+    config: Dict[str, Any] | None = None
 
 
 @dataclass
@@ -72,3 +73,59 @@ class HelpInput:
 class HelpOutput:
     usage: str
 
+
+# Documentation tools
+
+@dataclass
+class ListDocsOutput:
+    items: list[str]
+
+
+@dataclass
+class ReadDocInput:
+    name: str
+    start_line: int | None = None  # 1-based
+    max_lines: int | None = 200
+
+
+@dataclass
+class ReadDocOutput:
+    path: str
+    body: str
+
+
+@dataclass
+class SearchDocsInput:
+    query: str
+    max_results: int | None = 10
+
+
+@dataclass
+class SearchHit:
+    path: str
+    line: int
+    snippet: str
+
+
+@dataclass
+class SearchDocsOutput:
+    results: list[SearchHit]
+
+
+@dataclass
+class DocSource:
+    path: str
+    line: int
+
+
+@dataclass
+class DocAnswerInput:
+    query: str
+    max_sources: int | None = 2
+    context_window: int | None = 10
+
+
+@dataclass
+class DocAnswerOutput:
+    summary: str
+    sources: list[DocSource]

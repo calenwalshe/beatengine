@@ -1,0 +1,16 @@
+{
+  "mode": "m2",
+  "bpm": 125,
+  "ppq": 96,
+  "bars": 8,
+  "kick_variation": {
+    "pattern": [
+      1,
+      0.75,
+      1.25,
+      1,
+      0.5
+    ],
+    "probability": 0.7
+  }
+}

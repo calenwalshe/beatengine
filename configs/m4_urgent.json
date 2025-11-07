@@ -1,0 +1,31 @@
+{
+  "mode": "m4",
+  "bpm": 132,
+  "ppq": 1920,
+  "bars": 64,
+  "seed": 4242,
+  "out": "out/urgent_phrase_64.mid",
+  "log_path": "out/urgent_phrase_64.csv",
+  "targets": {
+    "S_low": 0.5,
+    "S_high": 0.75,
+    "hat_density_target": 0.85,
+    "hat_density_tol": 0.05
+  },
+  "layers": {
+    "hat_c": {"steps": 16, "fills": 14},
+    "hat_o": {"steps": 16, "fills": 16, "offbeats_only": true, "ratchet_prob": 0.12}
+  },
+  "modulators": [
+    {
+      "name": "oh_ratchet",
+      "param_path": "hat_o.ratchet_prob",
+      "mod": {"mode": "random_walk", "min_val": 0.10, "max_val": 0.25, "step_per_bar": 0.02, "max_delta_per_bar": 0.02}
+    },
+    {
+      "name": "thin_bias",
+      "param_path": "thin_bias",
+      "mod": {"mode": "ou", "min_val": -0.4, "max_val": -0.05, "step_per_bar": 0.02, "tau": 24, "max_delta_per_bar": 0.03}
+    }
+  ]
+}

@@ -103,12 +103,16 @@ User message: the natural‑language prompt.
 Progress Checklist (by milestone)
 - [ ] M0 — Skeleton & Local Commands
 - [ ] M1 — Tool Layer + Sandbox
+- [ ] M1.5 — Config‑First Contract + render_and_save
 - [ ] M2 — Orchestrator & Function Calling (mocked LLM)
 - [ ] M3 — OpenAI Integration
 - [ ] M4 — Phrase Generators & Summaries
-- [ ] M5 — UX Polish & Session State
-- [ ] M6 — Packaging & One‑liner
-- [ ] M7 — CI & Release
+- [ ] M5 — Prompt Parsing Heuristics (free‑form → config deltas)
+- [ ] M6 — Guardrails & Ranges (clamps + continuity)
+- [ ] M7 — Prompt‑to‑Delta Pattern Verification
+- [ ] M8 — UX Polish & Session State
+- [ ] M9 — Packaging & One‑liner
+- [ ] M10 — CI & Release
 
 M0 — Skeleton & Local Commands
 - Files:
@@ -120,10 +124,11 @@ M0 — Skeleton & Local Commands
   - [ ] Settings loader for `OPENAI_API_KEY` and model defaults
   - [ ] Graceful shutdown and error messages
   - [ ] Unit tests implemented (see below)
-- Unit tests:
-  - [ ] REPL parses `:help` and prints usage
-  - [ ] `:quit` exits cleanly (status 0)
-  - [ ] No LLM dependency in M0 tests
+- Unit tests (strong):
+  - [ ] REPL parses `:help`, prints usage and `:about` banner.
+  - [ ] `:quit` exits cleanly (status 0).
+  - [ ] Empty input yields no output and no state change.
+  - [ ] No LLM dependency; fast execution.
 
 M1 — Tool Layer + Sandbox
 - Files:
@@ -137,11 +142,27 @@ M1 — Tool Layer + Sandbox
   - [ ] Implement `fs_sandbox.py` safe path join/block traversal
   - [ ] Implement `schemas.py` (EngineConfigSubset, tool inputs)
   - [ ] Unit tests implemented (see below)
-- Unit tests:
-  - [ ] Writes happen only under `configs/` and `out/`
-  - [ ] render_session with inline config → `.mid` created
-  - [ ] create_config writes file; invalid JSON rejected
-  - [ ] list_configs/list_examples return expected items
+- Unit tests (strong):
+  - [ ] Writes happen only under `configs/` and `out/`; traversal rejected.
+  - [ ] render_session with inline config → `.mid` created (non‑zero size).
+  - [ ] create_config writes file; invalid JSON rejected.
+  - [ ] read_config/write_config round‑trip preserves JSON.
+  - [ ] list_configs/list_examples return expected items.
+
+M1.5 — Config‑First Contract + render_and_save
+- Files:
+  - `src/techno_engine/terminal/tools.py` (new tool `render_and_save`)
+  - `src/techno_engine/terminal/orchestrator.py` (register tool + schema)
+- Behavior:
+  - Single tool accepts style + overrides; expands defaults; clamps; saves `configs/<name>.json`; renders `.mid`; returns both paths + resolved_config.
+- Guardrails:
+  - Clamp bpm [110..150], bars [4..128], swing [0.5..0.58], ghost/displace [0..1], rotation_rate_per_bar [0..0.125].
+  - Always save before reporting success.
+- Unit tests (strong):
+  - [ ] Valid style+overrides → both files exist; `resolved_config` reflects overrides and clamps.
+  - [ ] Missing `name` → auto‑generated config filename returned and exists.
+  - [ ] Out‑of‑range values clamped; returned config shows clamped numbers.
+  - [ ] Seed defaulted if not provided; deterministic if seed set.
 
 M2 — Orchestrator & Function Calling (mocked LLM)
 - Files:
@@ -153,10 +174,11 @@ M2 — Orchestrator & Function Calling (mocked LLM)
   - [ ] AI client mock with function-calling shim
   - [ ] Retry on tool validation errors (bounded attempts)
   - [ ] Unit tests implemented (see below)
-- Unit tests (mocked LLM):
-  - [ ] “make an urgent 64‑bar groove” → render_phrase called; returns `.mid` path
-  - [ ] Off‑domain request → polite refusal + help text
-  - [ ] Invalid tool args → model retries with corrected args
+- Unit tests (mocked LLM, strong):
+  - [ ] “make an urgent 64‑bar groove” → render_and_save called; returns `.mid` + config paths.
+  - [ ] Off‑domain request → polite refusal + usage; no tool calls.
+  - [ ] Invalid tool args → model retries with corrected args; success within max_steps.
+  - [ ] Tool wiring: assistant message includes `tool_calls`; tool reply includes `tool_call_id`.
 
 M3 — OpenAI Integration
 - Implement real Chat Completions with tool calling.
@@ -167,9 +189,11 @@ M3 — OpenAI Integration
   - [ ] Add timeouts and exponential backoff
   - [ ] Feature flag for network tests
   - [ ] Unit/integration tests implemented (see below)
-- Tests:
-  - [ ] Mocked tests remain green
-  - [ ] Optional network smoke (skipped in CI by default)
+- Tests (strong):
+  - [ ] Mocked tests remain green.
+  - [ ] Optional network smoke (gated via `OPENAI_NETWORK_SMOKE=1`) validates 200 and JSON shape.
+  - [ ] Optional tools smoke (gated via `OPENAI_TOOL_SMOKE=1`) validates 200 and choices for tool calls.
+  - [ ] Model selection via `OPENAI_MODEL` honored (e.g., `gpt-5-2025-08-07`).
 
 M4 — Phrase Generators & Summaries
 - Expose `render_phrase` styles (e.g., hard‑evolving, urgent) with clamped options.
@@ -178,9 +202,37 @@ M4 — Phrase Generators & Summaries
   - [ ] Implement `render_phrase` styles and clamps
   - [ ] Add summary generator (bpm/bars/adjectives)
   - [ ] Unit tests implemented (see below)
-- Unit tests:
-  - [ ] `render_phrase` returns `.mid`
-  - [ ] Phrase length matches bars; summary mentions style + bpm
+- Unit tests (strong):
+  - [ ] `render_phrase` returns `.mid` (non‑zero size).
+  - [ ] Phrase length matches bars; summary includes style + bpm.
+  - [ ] For style presets, resolved_config shows expected defaults before overrides.
+
+M5 — Prompt Parsing Heuristics (free‑form → config deltas)
+- Files:
+  - `src/techno_engine/terminal/tools.py` (heuristics: “faster”, “more ghost”, “denser hats”, “more variation”)
+- Unit tests (strong):
+  - [ ] “more ghost” increases `layers.kick.ghost_pre1_prob` by ≥Δ and ≤1.0; saved config reflects change.
+  - [ ] “denser hats” increases hat density (e.g., `fills` or `ratchet_prob`); per‑bar hats increase within target±tol.
+  - [ ] “faster” increases bpm by ≥5 unless explicit bpm provided; IOIs scale accordingly.
+  - [ ] “more variation” increases `rotation_rate_per_bar` within cap.
+
+M6 — Guardrails & Ranges (clamps + continuity)
+- Behavior:
+  - Enforce clamped ranges and continuity (max_delta_per_bar) across bars for modulated params.
+- Unit tests (strong):
+  - [ ] Out‑of‑range inputs clamped and reflected in saved config.
+  - [ ] Over multi‑bar render, per‑bar param deltas ≤ caps (continuity test).
+  - [ ] Hat density meets target±tol over long horizons.
+
+M7 — Prompt‑to‑Delta Pattern Verification
+- Black‑box assertions tied to prompts:
+  - [ ] “more ghost” → increased pre‑kick onsets vs baseline (stat over N bars).
+  - [ ] “denser hats” → increased hat onsets per bar while respecting density clamp.
+  - [ ] “faster” → shorter IOIs; event counts unchanged.
+- Files:
+  - `tests/prompt/test_prompt_to_delta.py` (inspects MIDI events and derived metrics)
+
+M8 — UX Polish & Session State
 
 M5 — UX Polish & Session State
 - Add `:seed`, `:bpm`, `:bars` commands to set defaults; tools automatically inherit.
@@ -191,27 +243,30 @@ M5 — UX Polish & Session State
   - [ ] `:history` and `:paths` commands
   - [ ] Consistent one‑line summaries
   - [ ] Unit tests implemented (see below)
-- Unit tests:
-  - [ ] Changes to defaults persist across multiple requests
-  - [ ] History shows recent tool calls; paths list output dir(s)
+- Unit tests (strong):
+  - [ ] Changes to defaults persist across multiple requests.
+  - [ ] History shows recent tool calls; `:paths` lists output dirs.
+  - [ ] One‑line summaries include config and MIDI paths.
 
-M6 — Packaging & One‑liner
+M9 — Packaging & One‑liner
 - `entry_points` console script (`techno`).
 - README section with one‑liner to start the REPL.
 - Checklist:
   - [ ] Add console script entry point `techno`
   - [ ] Update README with “Terminal AI” and examples
   - [ ] Unit tests implemented (see below)
-- Tests:
-  - [ ] Smoke: run `techno`, request an example, `.mid` created
+- Tests (strong):
+  - [ ] Smoke: run `techno`, request an example, `.mid` created.
+  - [ ] `man -l docs/techno.1` renders without errors (CI optional).
 
-M7 (Optional) — CI & Release
+M10 (Optional) — CI & Release
 - CI job that runs unit tests and a mocked orchestrator test; optional macOS smoke job.
 - Tag a release and publish instructions.
 - Checklist:
-  - [ ] CI runs unit tests (mocked LLM)
-  - [ ] Optional macOS smoke job for REPL + tool call
-  - [ ] Tag and publish release; include bootstrap instructions
+  - [ ] CI runs unit tests (mocked LLM) and lint.
+  - [ ] Optional macOS smoke job for REPL + tool call.
+  - [ ] Optional network smokes gated by `OPENAI_NETWORK_SMOKE`.
+  - [ ] Tag and publish release; include bootstrap instructions.
 
 ---
 

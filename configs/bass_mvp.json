@@ -1,0 +1,9 @@
+{
+  "bpm": 120,
+  "ppq": 1920,
+  "bars": 4,
+  "seed": 4242,
+  "root_note": 45,
+  "out": "out/bass_mvp.mid"
+}
+

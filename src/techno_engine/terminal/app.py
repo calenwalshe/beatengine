@@ -7,9 +7,10 @@ from typing import Optional
 from .settings import load_settings
 from .orchestrator import Orchestrator
 from .ai_openai import OpenAIHTTPClient
+from . import tools as toolmod
 
 
-WELCOME = "Techno Assistant (terminal) — type :help for commands"
+WELCOME = "Berlin Techno App — type :help for commands"
 
 
 @dataclass
@@ -34,11 +35,11 @@ class TerminalApp:
         if s in (":help", ":h", "help"):
             return Reply("ok", self._help_text())
         if s in (":about", ":a"):
-            return Reply("ok", "Techno Assistant — terminal UI for generating techno MIDI via sandboxed tools.")
+            return Reply("ok", "Berlin Techno App — terminal UI for generating techno MIDI via sandboxed tools.")
         # If API key present, route to orchestrator (M3); else M0 message
         orch = self._get_orchestrator()
         if orch is None:
-            return Reply("ok", "No AI connected. Set OPENAI_API_KEY or .env OPENAI_API_KEY=... then retry. Try :help.")
+            return Reply("ok", "No AI. Ask Calen for key and export OPENAI_API_KEY then retry. Try :help.")
         res = orch.process(s)
         return Reply("ok", res.text)
 
@@ -49,7 +50,7 @@ class TerminalApp:
             "  :about         About this assistant\n"
             "  :quit          Exit the terminal\n\n"
             "Describe a groove in natural language (e.g., 'urgent 64-bar with crash lifts').\n"
-            "In M1+, the assistant will route to sandboxed tools and return a .mid path.\n"
+            "Requires OPENAI_API_KEY to call sandboxed tools and return a .mid path.\n"
         )
 
 
@@ -71,14 +72,16 @@ def repl(stdin = sys.stdin, stdout = sys.stdout) -> int:
 def _system_prompt() -> str:
     return (
         "You are Techno Assistant, a terminal-only helper for generating techno MIDI via strict tools. "
-        "Stay in domain: groove generation, configs, rendering, and usage help. "
+        "Stay in domain: groove generation, configs, rendering, documentation Q&A (architecture/roadmap/usage). "
         "Use tools only. Never run code/shell or browse. If asked off-domain, refuse politely and suggest a domain action. "
-        "When acting, prefer the simplest tool path. Keep replies concise and include resulting file paths."
+        "When acting, prefer the simplest tool path. Keep replies concise and include resulting file paths. "
+        "For documentation questions: do not ask for confirmation; call search_docs with a clear query, then read_doc for the best candidate, and answer concisely using that content."
     )
 
 def _developer_prompt() -> str:
     return (
-        "Tools available: render_session, create_config, list_configs, read_config, write_config, list_examples, help_text."
+        "Tools available: render_session, agent_handle, doc_answer, list_docs, read_doc, search_docs, create_config, list_configs, read_config, write_config, list_examples, help_text. "
+        "Doc Q&A flow: prefer doc_answer(query) for concise context; optionally follow with read_doc for detail. Avoid asking the user to list docs unless they request it."
     )
 
 def _build_orchestrator() -> Optional[Orchestrator]:

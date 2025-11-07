@@ -1,0 +1,68 @@
+{
+  "mode": "m4",
+  "bpm": 126,
+  "ppq": 1920,
+  "bars": 32,
+  "seed": 6061,
+  "out": "out/alien_bounce.mid",
+  "guard": {"min_E": 0.68, "max_rot_rate": 0.12, "kick_immutable": false},
+  "targets": {
+    "S_low": 0.50,
+    "S_high": 0.75,
+    "H_low": 0.30,
+    "H_high": 0.70,
+    "hat_density_target": 0.55,
+    "hat_density_tol": 0.08
+  },
+  "layers": {
+    "kick": {
+      "steps": 16,
+      "fills": 5,
+      "rot": 3,
+      "velocity": 118,
+      "rotation_rate_per_bar": 0.07,
+      "ghost_pre1_prob": 0.32,
+      "displace_into_2_prob": 0.28
+    },
+    "hat_c": {
+      "steps": 16,
+      "fills": 9,
+      "swing_percent": 0.58,
+      "beat_bins_ms": [-12, -8, -4, 0],
+      "beat_bins_probs": [0.45, 0.3, 0.2, 0.05],
+      "beat_bin_cap_ms": 14,
+      "conditions": [
+        {"kind": "EVERY_N", "n": 3, "offset": 2},
+        {"kind": "PROB", "p": 0.85}
+      ]
+    },
+    "hat_o": {
+      "steps": 16,
+      "fills": 16,
+      "offbeats_only": false,
+      "ratchet_prob": 0.18,
+      "ratchet_repeat": 3,
+      "swing_percent": 0.56,
+      "beat_bins_ms": [-4, 0, 4],
+      "beat_bins_probs": [0.3, 0.5, 0.2],
+      "beat_bin_cap_ms": 12,
+      "choke_with_note": 42,
+      "conditions": [{"kind": "EVERY_N", "n": 2, "offset": 1}]
+    },
+    "snare": {"steps": 16, "fills": 3, "rot": 6, "velocity": 98},
+    "clap": {"steps": 16, "fills": 2, "rot": 0, "velocity": 94}
+  },
+  "modulators": [
+    {
+      "name": "hat_swing",
+      "param_path": "hat_c.swing_percent",
+      "mod": {"mode": "ou", "min_val": 0.55, "max_val": 0.60, "step_per_bar": 0.006, "tau": 28, "max_delta_per_bar": 0.01}
+    },
+    {
+      "name": "thin_bias",
+      "param_path": "thin_bias",
+      "mod": {"mode": "ou", "min_val": -0.6, "max_val": -0.1, "step_per_bar": 0.02, "tau": 24, "max_delta_per_bar": 0.03}
+    }
+  ]
+}
+

@@ -1,0 +1,104 @@
+.\" Manpage for the Techno Terminal Assistant
+.TH TECHNO 1 "Nov 2025" "Techno Rhythm Engine" "User Commands"
+.SH NAME
+techno \- terminal assistant to generate techno MIDI via sandboxed tools
+.SH SYNOPSIS
+.B techno
+\[em] or \[em]
+.B python -m techno_engine.terminal.app
+
+.SH DESCRIPTION
+.B techno
+is a single-terminal REPL that accepts natural language requests to render
+techno MIDI patterns and manage engine configs. It uses OpenAI tool-calling
+to invoke a small, sandboxed set of local actions (render a session, create
+or edit configs, list examples) and returns concise paths to generated files.
+
+When an OpenAI API key is not configured, the assistant starts normally but
+will print a friendly hint and remain in local mode.
+
+.SH ENVIRONMENT
+.TP
+.B OPENAI_API_KEY
+Project or personal API key used for OpenAI Chat Completions with tool calling.
+Set this before launching the REPL. Example:
+.nf
+    export OPENAI_API_KEY='sk-...'
+.fi
+.TP
+.B TECH_ENGINE_CONFIGS_DIR
+Directory for readable/writable JSON configs (default: \fIconfigs/\fP).
+.TP
+.B TECH_ENGINE_OUT_DIR
+Directory for generated outputs (default: \fIout/\fP).
+
+.SH COMMANDS (REPL)
+.TP
+.B :help
+Show help text.
+.TP
+.B :about
+About this assistant.
+.TP
+.B :quit
+Exit the REPL.
+
+Natural language examples:
+.IP \(bu 2
+"make an urgent 8-bar groove at 140 bpm"
+.IP \(bu 2
+"render configs/m4_showcase.json"
+.IP \(bu 2
+"save this as configs/basic_95.json"
+
+Outputs are concise one-liners with file paths, e.g.,
+.nf
+  \[ti]/project/out/abc123.mid
+.fi
+
+.SH FILES
+.TP
+.I configs/
+User-editable JSON configs. The tool layer only reads/writes inside this folder
+(or \fBTECH_ENGINE_CONFIGS_DIR\fP).
+.TP
+.I out/
+Generated MIDI files and optional CSV logs (or \fBTECH_ENGINE_OUT_DIR\fP).
+
+.SH EXAMPLES
+.SS Launch with a key
+.nf
+  source .venv/bin/activate
+  export OPENAI_API_KEY='sk-...'
+  PYTHONPATH=src python -m techno_engine.terminal.app
+.fi
+
+.SS Quick prompt
+.nf
+  techno> make an 8-bar groove at 140 bpm
+  ✔ rendered out/3a9e.mid | 140 BPM, 8 bars
+.fi
+
+.SS Render from a config (no LLM)
+.nf
+  PYTHONPATH=src python -m techno_engine.run_config --config configs/m4_showcase.json
+.fi
+
+.SH EXIT STATUS
+The REPL exits with status 0 on normal termination via \fB:quit\fP.
+
+.SH SECURITY
+- The assistant never prints secrets.
+- All file writes are sandboxed to \fIconfigs/\fP and \fIout/\fP.
+- Off-domain requests are refused; only registered tools are available.
+
+.SH BUGS
+Tool-calling requires network access. API errors are surfaced inline, e.g.,
+"OpenAI error: 400 Bad Request". Verify the key and network connectivity.
+
+.SH SEE ALSO
+.BR techno_engine.run_config (1),
+.BR docs/ARCHITECTURE.md ,
+.BR docs/TERMINAL_AI_ROADMAP.md ,
+.BR roadmap
+

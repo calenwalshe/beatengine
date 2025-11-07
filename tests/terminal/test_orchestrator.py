@@ -65,3 +65,19 @@ def test_orchestrator_retry_on_invalid_args(tmp_path: Path):
     assert res.text == "Done"
     assert res.tool_result and Path(res.tool_result["path"]).exists()
 
+
+def test_orchestrator_agent_handle(tmp_path: Path):
+    _tmp_dirs(tmp_path)
+    plan = [
+        {
+            "type": "tool_call",
+            "name": "agent_handle",
+            "args": {"prompt": "tons of ghost kicks 8 bars at 132 bpm"},
+        },
+        {"type": "text", "text": "Groove ready"},
+    ]
+    orch = Orchestrator(MockClient(plan))
+    res = orch.process("ghost mode", max_steps=4)
+    assert res.text == "Groove ready"
+    assert res.tool_result
+    assert Path(res.tool_result["midi_path"]).exists()

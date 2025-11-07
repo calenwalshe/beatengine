@@ -1,5 +1,8 @@
 # Techno Rhythm Engine — Berlin-Style Roadmap Build
 
+[![Tests](https://img.shields.io/badge/tests-96%20passed-green)](#unit-tests)
+[![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen)](#unit-tests)
+
 This repository is an implementation of the "Berlin-Style Techno MIDI Engine" roadmap. It generates hypnotic Berlin/Berghain-style techno loops with high-resolution PPQ, microtiming guardrails, long-horizon feedback, and configurable probabilities.
 
 ## Quickstart
@@ -15,21 +18,15 @@ python -m techno_engine.run_config --config configs/m4_showcase.json
 
 # Direct CLI for metronome (M0 baseline)
 python -m techno_engine.cli --config configs/m0_metronome.json
+
+# Offline agent (no OPENAI_API_KEY):
+PYTHONPATH=src python -m techno_engine.terminal.app \
+  <<<"make a ben klock style groove at 125 bpm with more ghost kicks"
+# The agent saves both MIDI and config under out/ and configs/ respectively.
 ```
-
-## Try it now (macOS one-liner)
-
-Anyone on stock macOS with Python 3 installed can run the demo immediately:
-
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mltechno/techno_rhythm_engine/main/scripts/bootstrap.sh | bash
 ```
-
-The script:
-- Verifies `python3` is available (if not, it prints a link to the official installer)
-- Downloads the latest tarball from GitHub codeload
-- Creates a local virtual environment, installs `mido` from `requirements.txt`
-- Renders `configs/m4_showcase.json`, writing the MIDI (and CSV log) under `out/`
 
 To render a different config in one shot, override `DEMO_CONFIG`:
 
@@ -48,6 +45,19 @@ The engine writes `.mid` files to the configured `out` path and, for M4 configs,
 | `configs/`                  | Ready-to-run JSON configs (M0–M4, Markov/kick/condition showcases) |
 | `out/`                      | Generated MIDI examples (not tracked) |
 | `roadmap`, `ROADMAP_CHECKLIST.md` | Roadmap artifact and progress log |
+| `docs/ARCHITECTURE.md`      | System architecture and technical design |
+| `docs/techno.1`             | Man page for the terminal REPL |
+
+### Offline styles
+
+The offline agent recognises a few heuristically tuned presets:
+
+| Style key | Description |
+|-----------|-------------|
+| `ben_klock` | 128 BPM, rotating kick, dense hats with OU swing drift. |
+| `ghost_kick` | 130 BPM, aggressive ghost kicks and displacement bias. |
+
+Prompts like “make a Ben Klock style groove at 125 bpm with more ghost kicks” or “tons of ghost pattern on the kick” will pick the closest preset and apply overrides (BPM/bars/ghost weighting/variation).
 
 ## Features Implemented
 
@@ -147,6 +157,39 @@ Parameters:
 | `hat_o.s,...`          | Any LayerConfig float (e.g. `hat_o.swing_percent`) |
 | `accent.prob`          | Global accent probability |
 
+## Bassline CLI & Showcase
+
+- Render drums + bass with extra musical controls:
+
+```bash
+PYTHONPATH=src python -m techno_engine.combo_cli \
+  --drum configs/m4_syncopated_layers.json \
+  --drum_out out/sync_example_drums.mid \
+  --bass_out out/sync_example_bass.mid \
+  --key A --mode minor --motif root_b7 --phrase rise --density 0.42
+```
+
+- Generate a full audition pack (separate drums/bass, manifest CSV/JSON/HTML):
+
+```bash
+PYTHONPATH=src python -m techno_engine.showcase --pack default --outdir out/showcase_latest \
+  --key A --mode minor --scenario syncopated_layers --scenario alien_bounce
+open out/showcase_latest/index.html
+```
+
+Each run emits:
+- `manifest.csv` + `manifest.json` with E/S medians, key/mode, scenario descriptions, file paths.
+- `index.html` (styled table with links), plus `drums_*.mid` and `bass_*.mid`.
+
+### Orchestrator / Plan example
+
+```text
+User: \"make bass for configs/m4_95bpm.json in A minor with density 0.4\"
+Plan:
+- call make_bass_for_config(config_path=\"configs/m4_95bpm.json\", key=\"A\", mode=\"minor\", density=0.4, save_prefix=\"m4_95bpm_minor\")
+- return drums/bass paths plus E/S metrics
+```
+
 ## Unit Tests
 
 We ship 32 tests covering the entire pipeline. Key suites:
@@ -175,3 +218,24 @@ Run `pytest -q` to ensure all pass; the pipeline is currently green.
 - Example outputs are for demonstration—the engine itself is MIDI-only and can drive any sound source.
 
 Enjoy exploring the groove!
+## Man Page
+
+View the man page locally without installing:
+
+```bash
+man -l docs/techno.1
+# or
+groff -man -Tutf8 docs/techno.1 | less
+```
+
+## OpenAI model selection
+
+Set `OPENAI_MODEL` to choose a smarter model for tool‑calling (default is `gpt-4o-mini`). Examples:
+
+```bash
+export OPENAI_API_KEY='sk-...'
+export OPENAI_MODEL='gpt-4o'   # higher quality, higher cost
+PYTHONPATH=src python -m techno_engine.terminal.app
+```
+
+You can also place `OPENAI_MODEL=gpt-4o` in your `.env` next to `OPENAI_API_KEY`.

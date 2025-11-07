@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from techno_engine.terminal.app import TerminalApp
 
 
@@ -21,7 +23,6 @@ def test_repl_help_and_quit():
 
 def test_repl_default_response_no_llm():
     app = TerminalApp()
-    r = app.handle_line("make a 64-bar urgent groove")
+    r = app.handle_line("make a 32 bar groove with ghost kicks at 128 bpm")
     assert r.action == "ok"
-    assert "No AI connected" in r.output
-
+    assert "No AI. Ask Calen for key" in r.output

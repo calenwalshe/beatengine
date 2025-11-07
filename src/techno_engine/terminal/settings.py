@@ -13,7 +13,8 @@ class Settings:
 
 def load_settings() -> Settings:
     key = os.environ.get("OPENAI_API_KEY")
-    if not key:
+    model = os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
+    if not key or not os.environ.get("OPENAI_MODEL"):
         env_path = Path(".env")
         if env_path.exists():
             try:
@@ -23,9 +24,12 @@ def load_settings() -> Settings:
                         continue
                     if "=" in line:
                         k, v = line.split("=", 1)
-                        if k.strip() == "OPENAI_API_KEY" and v.strip():
-                            key = v.strip()
-                            break
+                        k = k.strip()
+                        v = v.strip()
+                        if not key and k == "OPENAI_API_KEY" and v:
+                            key = v
+                        if not os.environ.get("OPENAI_MODEL") and k == "OPENAI_MODEL" and v:
+                            model = v
             except Exception:
                 pass
-    return Settings(openai_api_key=key)
+    return Settings(openai_api_key=key, model=model)

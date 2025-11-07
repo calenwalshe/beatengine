@@ -75,6 +75,7 @@ Record every substantive roadmap change here. Use IDs like `RM-YYYYMMDD-##`.
 | RM-20251103-03 | 2025-11-03 | techno-bot | C (GeneratorParams), D.1, E | Kick variation (ghosts/displacements/rotation), guard update, new tests and showcase | algorithm-change, tests-updated |  |
 | RM-20251103-04 | 2025-11-03 | techno-bot | A.4, D.4, H (M3/M4) | Implemented PROB/PRE/FILL/EVERY_N condition stack with unit tests and demos | algorithm-change, tests-updated |  |
 | RM-20251103-05 | 2025-11-03 | techno-bot | B, D.5, E | Added param-path modulators, entropy/density feedback, logging, and CLI integration | algorithm-change, tests-updated |  |
+| RM-20251106-01 | 2025-11-06 | techno-bot | Docs (Showcase/Agent), README | Added showcase JSON/HTML manifest, scenario filters, docs snippets; created DOCUMENTATION_ROADMAP.md | docs-updated |  |
 
 Guidance:
 - Section(s): e.g., `C`, `D.2`, `H (M2 tests)`
@@ -88,6 +89,11 @@ Guidance:
 - Source file: `roadmap`
 - Last reviewed by: __________
 - Next review due: __________
+
+## Documentation Plan Status
+
+- P0: Build man pages and Agent API v1 + cheatsheets (see docs/DOCUMENTATION_ROADMAP.md)
+- Current progress: README/SHOWCASE/BASSLINE_API updated; one-shot tool documented; showcase HTML/JSON complete.
 
 Versioning rules:
 - Bump patch for doc-only clarifications without changing tests/spec.
