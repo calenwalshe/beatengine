@@ -1,0 +1,65 @@
+.\" Manpage for Techno Showcase CLI
+.TH TECHNO-SHOWCASE 1 "Nov 2025" "Techno Rhythm Engine" "User Commands"
+.SH NAME
+techno-showcase \- render a pack of drum+bass examples with a manifest and HTML index
+.SH SYNOPSIS
+.B PYTHONPATH=src python -m techno_engine.showcase
+.br
+[\fB--pack\fP \fIKEY\fP] [\fB--outdir\fP \fIDIR\fP] [\fB--quick\fP]
+[\fB--key\fP \fIKEY\fP] [\fB--mode\fP \fIMODE\fP]
+[\fB--scenario\fP \fINAME\fP]...
+
+.SH DESCRIPTION
+\fBtechno-showcase\fP renders a curated set of scenarios (drums + scored bass)
+using built-in M4 configs. It writes per-scenario MIDIs, a manifest CSV/JSON
+with E/S medians, and a simple \fIindex.html\fP for quick auditioning.
+
+.SH OPTIONS
+.TP
+.B --pack \fIKEY\fP
+Scenario pack key (default: \fIdefault\fP).
+.TP
+.B --outdir \fIDIR\fP
+Output directory for the pack (default: \fIout/showcase\fP).
+.TP
+.B --quick
+Render "short" variants where available.
+.TP
+.B --key \fIKEY\fP
+Global bass key (e.g., A, Eb). Overrides per-scenario root.
+.TP
+.B --mode \fIMODE\fP
+Global bass mode (minor/aeolian/dorian). Normalized internally.
+.TP
+.B --scenario \fINAME\fP
+Limit to one or more specific scenarios by base name (e.g., \fIsyncopated_layers\fP).
+
+.SH OUTPUTS
+.IP \(bu 2
+Per-scenario *_drums.mid and *_bass.mid files under \fIoutdir\fP.
+.IP \(bu 2
+Manifest CSV and JSON (paths, BPM, bars, E_med, S_med, key, mode).
+.IP \(bu 2
+index.html with a styled table of scenarios and links to MIDIs.
+
+.SH EXAMPLES
+.SS Default pack to a custom directory
+.nf
+PYTHONPATH=src python -m techno_engine.showcase \\
+  --outdir out/showcase_latest
+.fi
+
+.SS Filter to specific scenarios in A minor
+.nf
+PYTHONPATH=src python -m techno_engine.showcase \\
+  --outdir out/showcase_minor --key A --mode minor \\
+  --scenario syncopated_layers --scenario ghosty_sync_hats
+.fi
+
+.SH EXIT STATUS
+Exits 0 on success; non-zero on bad scenario name or I/O errors.
+
+.SH SEE ALSO
+.BR techno (1),
+.BR techno-combo (1)
+

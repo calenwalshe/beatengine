@@ -1,4 +1,4 @@
-.PHONY: dist bootstrap clean-release
+.PHONY: dist bootstrap clean-release docs-test
 
 RELEASE_DIR := release
 ARCHIVE := $(RELEASE_DIR)/techno_engine.tgz
@@ -17,3 +17,6 @@ bootstrap:
 
 clean-release:
 	rm -rf $(RELEASE_DIR)
+
+docs-test:
+	@bash scripts/docs_test.sh

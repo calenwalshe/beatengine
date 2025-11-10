@@ -1,0 +1,50 @@
+.\" Manpage for Techno Bass CLI
+.TH TECHNO-BASS 1 "Nov 2025" "Techno Rhythm Engine" "User Commands"
+.SH NAME
+techno-bass \- generate a minimal MVP bassline from JSON config
+.SH SYNOPSIS
+.B PYTHONPATH=src python -m techno_engine.bass_cli
+.br
+.B --config
+\fIPATH\fP
+
+.SH DESCRIPTION
+\fBtechno-bass\fP generates a simple, musical MVP bassline. It places an
+anchor at step 0 per bar (alternating root/fifth) and offbeat pulses, then
+writes a single-track MIDI file.
+
+.SH OPTIONS
+.TP
+.B --config \fIPATH\fP
+Path to a JSON file with the following keys:
+.IP \(bu 2
+\fBbpm\fP (number) — tempo (default 128)
+.IP \(bu 2
+\fBppq\fP (integer) — pulses per quarter (default 1920)
+.IP \(bu 2
+\fBbars\fP (integer) — number of bars (default 4)
+.IP \(bu 2
+\fBseed\fP (integer) — seed (default 1234)
+.IP \(bu 2
+\fBout\fP (string) — output MIDI path (default out/bass_mvp.mid)
+.IP \(bu 2
+\fBroot_note\fP (integer) — bass root note (default 45)
+
+.SH EXAMPLES
+.SS Generate a 16-bar MVP bassline
+.nf
+cat > /tmp/bass_cfg.json <<'JSON' && \\
+PYTHONPATH=src python -m techno_engine.bass_cli --config /tmp/bass_cfg.json
+{
+  "bpm": 129, "ppq": 1920, "bars": 16,
+  "out": "out/bass_mvp_129.mid", "root_note": 45
+}
+JSON
+.fi
+
+.SH EXIT STATUS
+Exits 0 on success; non-zero on invalid config or I/O errors.
+
+.SH SEE ALSO
+.BR techno-combo (1)
+

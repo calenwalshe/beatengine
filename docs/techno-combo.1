@@ -1,0 +1,94 @@
+.\" Manpage for Techno Combo CLI (drums + bass)
+.TH TECHNO-COMBO 1 "Nov 2025" "Techno Rhythm Engine" "User Commands"
+.SH NAME
+techno-combo \- render drums from config and a separate bassline
+.SH SYNOPSIS
+.B PYTHONPATH=src python -m techno_engine.combo_cli
+.br
+.B --drum
+\fICONFIG\fP
+\fR[\fP\fB--drum_out\fP \fIPATH\fP\fR]\fP [\fB--bass_out\fP \fIPATH\fP]
+[\fB--root_note\fP \fIN\fP] [\fB--key\fP \fIKEY\fP] [\fB--mode\fP \fIMODE\fP]
+[\fB--motif\fP \fIPRESET\fP] [\fB--phrase\fP \fIPRESET\fP]
+[\fB--bass_mode\fP \fImvp|scored\fP] [\fB--no-validate\fP]
+[\fB--density\fP \fIFLOAT\fP] [\fB--min_dur_steps\fP \fIFLOAT\fP]
+[\fB--degree\fP \fIminor|none\fP]
+
+.SH DESCRIPTION
+\fBtechno-combo\fP loads an engine config (M1/M2/M4) and writes two MIDI files:
+one for drums and one for a bassline. In \fIscored\fP mode, the bassline uses
+kick/hat/clap masks derived from the rendered drums; in \fIMVP\fP mode it uses
+simple offbeats and anchors. A validator corrects collisions and density by default.
+
+.SH OPTIONS
+.TP
+.B --drum \fICONFIG\fP
+Path to JSON engine config (supports M1/M2/M4). Required.
+.TP
+.B --drum_out \fIPATH\fP
+Output path for drums MIDI (default: \fIout/drums_only.mid\fP).
+.TP
+.B --bass_out \fIPATH\fP
+Output path for bassline MIDI (default: \fIout/bass_only.mid\fP).
+.TP
+.B --root_note \fIN\fP
+Bass root MIDI note (default: 45). Overridden by \fB--key\fP.
+.TP
+.B --key \fIKEY\fP
+Global bass key (e.g., A, D#, Eb) sets the root; pairs with \fB--mode\fP.
+.TP
+.B --mode \fIMODE\fP
+Mode colouring for bass (e.g., minor/aeolian/dorian). Normalized internally.
+.TP
+.B --motif \fIPRESET\fP
+Motif preset: root_only, root_fifth, root_fifth_octave, root_b7, pentatonic_bounce, dorian_sway.
+.TP
+.B --phrase \fIPRESET\fP
+Phrase preset across bars: rise, bounce, fall, surge, collapse.
+.TP
+.B --bass_mode \fImvp|scored\fP
+Bass generator: minimal MVP or drum-aware scored (default: scored).
+.TP
+.B --no-validate
+Disable bassline validator corrections (collisions, density, monophony).
+.TP
+.B --density \fIFLOAT\fP
+Target bass density as fraction of 16th steps per bar (default: 0.4).
+.TP
+.B --min_dur_steps \fIFLOAT\fP
+Minimum bass note duration in 16th steps (default: 0.5).
+.TP
+.B --degree \fIminor|none\fP
+Optional degree colouring (minor adds b7 pulses) when motif not specified.
+
+.SH EXAMPLES
+.SS Drums + scored bassline
+.nf
+PYTHONPATH=src python -m techno_engine.combo_cli \\
+  --drum configs/m4_syncopated_layers.json \\
+  --drum_out out/sync/drums.mid \\
+  --bass_out out/sync/bass.mid \\
+  --key A --mode minor --density 0.40
+.fi
+
+.SS MVP bassline with motif and phrase
+.nf
+PYTHONPATH=src python -m techno_engine.combo_cli \\
+  --drum configs/m2_parametric.json \\
+  --bass_mode mvp --motif root_fifth --phrase bounce
+.fi
+
+.SH FILES
+.IP \(bu 2
+\fIconfigs/\fP — JSON configs used by the engine.
+.IP \(bu 2
+\fIout/\fP — Generated MIDI files and optional logs.
+
+.SH EXIT STATUS
+Exits 0 on success; non-zero on invalid config or I/O errors.
+
+.SH SEE ALSO
+.BR techno (1),
+.BR techno-showcase (1),
+.BR techno-bass (1)
+

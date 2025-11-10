@@ -13,35 +13,35 @@ Status fields use GitHub-style checkboxes. Update incrementally as work proceeds
 - [x] Tests specified (PPQ, tempo, ms→ticks, metronome)
 - [x] Implementation scaffolding in repo
 - [x] MIDI writer (abs→sorted→delta) passes checks
-- [ ] Docs updated (usage + assumptions)
+- [x] Docs updated (usage + assumptions)
 
 ### M1 — Deterministic Backbone
 - [x] Spec captured in roadmap (M1)
 - [x] Tests specified (kick 4/4, hat-c 16ths, snare backbeat, E/S bounds)
 - [x] Backbone implemented
 - [x] Tests implemented and passing
-- [ ] Docs updated
+- [x] Docs updated
 
 ### M2 — Parametric Engine + Micro + Choke + Polymeter
 - [x] Spec captured in roadmap (M2)
 - [x] Tests specified (swing ticks, beat-bins bins/caps, choke, dispersion)
 - [x] Features implemented (euclid+rotation, ratchets, choke, micro)
 - [x] Tests implemented and passing
-- [ ] Docs updated
+- [x] Docs updated
 
 ### M3 — Conditions, Constraints & Density
 - [x] Spec captured in roadmap (M3)
 - [x] Tests specified (EVERY_N, mute-near-kick, density clamp, thinning)
 - [x] Features implemented
 - [x] Tests implemented and passing
-- [ ] Docs updated
+- [x] Docs updated
 
 ### M4 — Scoring, Feedback, Modulators & Guardrails
 - [x] Spec captured in roadmap (M4)
 - [x] Tests specified (S band, E target, T_ms caps, continuity, rescue)
 - [x] Features implemented (metrics, feedback, modulators, guards)
 - [x] Tests implemented and passing
-- [ ] Docs updated
+- [x] Docs updated
 
 ---
 
@@ -76,6 +76,7 @@ Record every substantive roadmap change here. Use IDs like `RM-YYYYMMDD-##`.
 | RM-20251103-04 | 2025-11-03 | techno-bot | A.4, D.4, H (M3/M4) | Implemented PROB/PRE/FILL/EVERY_N condition stack with unit tests and demos | algorithm-change, tests-updated |  |
 | RM-20251103-05 | 2025-11-03 | techno-bot | B, D.5, E | Added param-path modulators, entropy/density feedback, logging, and CLI integration | algorithm-change, tests-updated |  |
 | RM-20251106-01 | 2025-11-06 | techno-bot | Docs (Showcase/Agent), README | Added showcase JSON/HTML manifest, scenario filters, docs snippets; created DOCUMENTATION_ROADMAP.md | docs-updated |  |
+| RM-20251110-01 | 2025-11-10 | techno-bot | Docs (manpages, Agent API, cheatsheets), Makefile | Added man pages (techno-combo.1, techno-showcase.1, techno-bass.1), AGENT_API.md and cheatsheets; docs-test target; marked Docs updated for M0–M4 | docs-updated |  |
 
 Guidance:
 - Section(s): e.g., `C`, `D.2`, `H (M2 tests)`
