@@ -7,23 +7,29 @@ This repository is an implementation of the "Berlin-Style Techno MIDI Engine" ro
 
 ## Quickstart
 
-```bash
-python -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt  # if applicable
-pytest -q                         # run unit tests (32 currently)
+1. **Bootstrap the environment (agents should run this first):**
 
-# Render from a JSON config
-python -m techno_engine.run_config --config configs/m4_showcase.json
+   ```bash
+   python3 -m venv .venv
+   . .venv/bin/activate
+   pip install -r requirements.txt   # installs mido + tooling
+   pytest -q                         # optional: 98 pass / 2 skip expected
+   ```
 
-# Direct CLI for metronome (M0 baseline)
-python -m techno_engine.cli --config configs/m0_metronome.json
+2. **Render something** once the venv is active:
 
-# Offline agent (no OPENAI_API_KEY):
-PYTHONPATH=src python -m techno_engine.terminal.app \
-  <<<"make a ben klock style groove at 125 bpm with more ghost kicks"
-# The agent saves both MIDI and config under out/ and configs/ respectively.
-```
+   ```bash
+   # Render from a JSON config
+   python -m techno_engine.run_config --config configs/m4_showcase.json
+
+   # Direct CLI for metronome (M0 baseline)
+   python -m techno_engine.cli --config configs/m0_metronome.json
+
+   # Offline agent (no OPENAI_API_KEY)
+   PYTHONPATH=src python -m techno_engine.terminal.app \
+     <<<"make a ben klock style groove at 125 bpm with more ghost kicks"
+   # The agent saves both MIDI and config under out/ and configs/ respectively.
+   ```
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mltechno/techno_rhythm_engine/main/scripts/bootstrap.sh | bash
 ```
@@ -102,6 +108,12 @@ ls out/modulator_showcase
 ```
 
 Each `.mid` corresponds to a config or script change in the repo, making it easier to reproduce the sound.
+
+## LLM Prompt Demo Library
+
+- `docs/LLM_PROMPT_DEMOS.md` enumerates turnkey prompts that agents (or humans) can execute without guessing parameter sets. It lives next to the other cheat sheets so the assistant reads it during boot.
+- The latest entry, `energy_gradient`, calls `scripts/make_energy_gradient_pack.py` to write eight 135 BPM grooves that rise to a peak (`energy05_peak_strike`) and fall back down—perfect for demoing tension arcs or regression testing hat density.
+- Add your own deterministic demos by extending that doc and referencing them here so they stay discoverable.
 
 ## Configuration Guide
 
