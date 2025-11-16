@@ -1,0 +1,109 @@
+{
+  "mode": "m4",
+  "bpm": 129,
+  "ppq": 1920,
+  "bars": 32,
+  "seed": 90210,
+  "out": "out/warehouse_sync/drums.mid",
+  "log_path": "out/warehouse_sync/drums_metrics.csv",
+  "guard": {"min_E": 0.72, "max_rot_rate": 0.10, "kick_immutable": false},
+  "targets": {
+    "S_low": 0.40,
+    "S_high": 0.65,
+    "H_low": 0.38,
+    "H_high": 0.68,
+    "hat_density_target": 0.72,
+    "hat_density_tol": 0.06
+  },
+  "layers": {
+    "kick": {
+      "rot": 1,
+      "rotation_rate_per_bar": 0.07,
+      "ghost_pre1_prob": 0.30,
+      "displace_into_2_prob": 0.20
+    },
+    "hat_c": {
+      "steps": 16,
+      "fills": 12,
+      "swing_percent": 0.565,
+      "beat_bins_ms": [-12, -8, -4, 0, 2],
+      "beat_bins_probs": [0.36, 0.30, 0.20, 0.10, 0.04],
+      "beat_bin_cap_ms": 12,
+      "conditions": [
+        {"kind": "EVERY_N", "n": 3, "offset": 2},
+        {"kind": "PROB", "p": 0.92}
+      ]
+    },
+    "hat_o": {
+      "steps": 16,
+      "fills": 16,
+      "offbeats_only": true,
+      "ratchet_prob": 0.15,
+      "ratchet_repeat": 3,
+      "swing_percent": 0.555,
+      "beat_bins_ms": [-2, 0, 2],
+      "beat_bins_probs": [0.2, 0.6, 0.2],
+      "beat_bin_cap_ms": 10,
+      "choke_with_note": 42,
+      "conditions": [{"kind": "PROB", "p": 0.86}]
+    },
+    "snare": {
+      "steps": 16,
+      "fills": 3,
+      "rot": 5,
+      "velocity": 96,
+      "conditions": [
+        {"kind": "PROB", "p": 0.7},
+        {"kind": "EVERY_N", "n": 4, "offset": 2, "negate": true}
+      ]
+    },
+    "clap": {
+      "steps": 16,
+      "fills": 2,
+      "rot": 4,
+      "velocity": 92,
+      "conditions": [
+        {"kind": "PROB", "p": 0.58},
+        {"kind": "EVERY_N", "n": 8, "offset": 4}
+      ]
+    }
+  },
+  "modulators": [
+    {
+      "name": "hat_swing",
+      "param_path": "hat_c.swing_percent",
+      "mod": {
+        "mode": "ou",
+        "min_val": 0.54,
+        "max_val": 0.59,
+        "step_per_bar": 0.007,
+        "tau": 24,
+        "max_delta_per_bar": 0.01
+      }
+    },
+    {
+      "name": "oh_ratchet",
+      "param_path": "hat_o.ratchet_prob",
+      "mod": {
+        "mode": "random_walk",
+        "min_val": 0.10,
+        "max_val": 0.22,
+        "step_per_bar": 0.015,
+        "max_delta_per_bar": 0.02
+      }
+    },
+    {
+      "name": "thin_bias",
+      "param_path": "thin_bias",
+      "mod": {
+        "mode": "ou",
+        "min_val": -0.60,
+        "max_val": -0.12,
+        "step_per_bar": 0.02,
+        "tau": 28,
+        "max_delta_per_bar": 0.03
+      }
+    }
+  ]
+}
+
