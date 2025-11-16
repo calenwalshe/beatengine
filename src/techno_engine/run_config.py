@@ -11,11 +11,37 @@ from .backbone import build_backbone_events
 from .parametric import LayerConfig, build_layer, collect_closed_hat_ticks
 from .controller import run_session
 from .midi_writer import write_midi
+from .seeds import save_seed
 
 
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Render a session from JSON config (m1/m2/m4)")
     parser.add_argument("--config", required=True, help="Path to JSON config")
+    parser.add_argument(
+        "--save-seed",
+        action="store_true",
+        help="If set, save a seed record (config + metadata) under seeds/",
+    )
+    parser.add_argument(
+        "--prompt-text",
+        default=None,
+        help="Optional prompt text that led to this render (stored in seed metadata)",
+    )
+    parser.add_argument(
+        "--tags",
+        default=None,
+        help="Optional comma-separated tags for this seed (e.g. 'm4,warehouse,ghost_kicks')",
+    )
+    parser.add_argument(
+        "--summary",
+        default=None,
+        help="Optional short natural-language summary of the beat",
+    )
+    parser.add_argument(
+        "--parent-seed-id",
+        default=None,
+        help="Optional parent seed identifier when creating a derived seed",
+    )
     args = parser.parse_args(argv)
 
     cfg = load_engine_config(args.config)
@@ -29,12 +55,30 @@ def main(argv: List[str] | None = None) -> int:
     elif mode == "m2":
         # Use provided layer configs or sensible defaults
         kick = cfg.kick or LayerConfig(steps=16, fills=4, note=36, velocity=110)
-        hatc = cfg.hat_c or LayerConfig(steps=16, fills=16, note=42, velocity=80, swing_percent=0.55,
-                                        beat_bins_ms=[-10,-6,-2,0], beat_bins_probs=[0.4,0.35,0.2,0.05], beat_bin_cap_ms=12)
-        hato = cfg.hat_o or LayerConfig(steps=16, fills=16, note=46, velocity=80, offbeats_only=True,
-                                        ratchet_prob=0.08, ratchet_repeat=3, swing_percent=0.55,
-                                        beat_bins_ms=[-2,0,2], beat_bins_probs=[0.2,0.6,0.2], beat_bin_cap_ms=10,
-                                        choke_with_note=42)
+        hatc = cfg.hat_c or LayerConfig(
+            steps=16,
+            fills=16,
+            note=42,
+            velocity=80,
+            swing_percent=0.55,
+            beat_bins_ms=[-10, -6, -2, 0],
+            beat_bins_probs=[0.4, 0.35, 0.2, 0.05],
+            beat_bin_cap_ms=12,
+        )
+        hato = cfg.hat_o or LayerConfig(
+            steps=16,
+            fills=16,
+            note=46,
+            velocity=80,
+            offbeats_only=True,
+            ratchet_prob=0.08,
+            ratchet_repeat=3,
+            swing_percent=0.55,
+            beat_bins_ms=[-2, 0, 2],
+            beat_bins_probs=[0.2, 0.6, 0.2],
+            beat_bin_cap_ms=10,
+            choke_with_note=42,
+        )
         snare = cfg.snare or LayerConfig(steps=16, fills=2, rot=4, note=38, velocity=96)
         clap = cfg.clap or LayerConfig(steps=16, fills=2, rot=4, note=39, velocity=92)
 
@@ -69,8 +113,29 @@ def main(argv: List[str] | None = None) -> int:
         raise SystemExit(f"Unknown mode: {mode}")
 
     print(f"Wrote {cfg.out} ({cfg.mode}, bpm={cfg.bpm}, ppq={cfg.ppq}, bars={cfg.bars})")
+
+    if args.save_seed:
+        tags: list[str] | None
+        if args.tags:
+            tags = [t.strip() for t in args.tags.split(",") if t.strip()]
+        else:
+            tags = None
+
+        meta = save_seed(
+            cfg,
+            config_path=args.config,
+            render_path=cfg.out,
+            prompt=args.prompt_text,
+            summary=args.summary,
+            tags=tags,
+            log_path=getattr(cfg, "log_path", None),
+            parent_seed_id=args.parent_seed_id,
+        )
+        print(f"Saved seed {meta.seed_id} under seeds/{meta.seed_id}")
+
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
