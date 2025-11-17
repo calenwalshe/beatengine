@@ -272,7 +272,7 @@ def _run_curses(seeds_root: Path) -> int:
                 detail_x = left_w + 1
                 if detail_x < w - 1 and metas:
                     meta = metas[selected]
-                    seed_dir = seeds_root / meta.seed_id
+                    seed_dir = (seeds_root / meta.seed_id).resolve()
                     cfg_path = seed_dir / meta.config_path
                     meta_path = seed_dir / "metadata.json"
                     detail_lines = [
@@ -301,7 +301,7 @@ def _run_curses(seeds_root: Path) -> int:
                 status = " j/k: move  Enter: details  r: refresh  q: quit "
             else:
                 meta = metas[selected]
-                seed_dir = seeds_root / meta.seed_id
+                seed_dir = (seeds_root / meta.seed_id).resolve()
                 cfg_path = seed_dir / meta.config_path
                 meta_path = seed_dir / "metadata.json"
 
