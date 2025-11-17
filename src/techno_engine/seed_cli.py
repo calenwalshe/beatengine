@@ -7,6 +7,9 @@ from typing import List
 
 from .run_config import main as run_config_main
 from .seeds import SeedMetadata, load_seed, rebuild_index, import_mid_as_seed
+from .drum_analysis import extract_drum_anchors
+from .groove_bass import generate_groove_bass
+from .midi_writer import write_midi
 
 
 def _get_seeds_root(root_arg: str | None) -> Path:
@@ -183,6 +186,81 @@ def _cmd_clone(args: argparse.Namespace) -> int:
     return rc
 
 
+
+
+def _cmd_bass_from_seed(args: argparse.Namespace) -> int:
+    """Generate groove-aware bass for an existing seed and append as a bass asset.
+
+    This uses the current seed's drum MIDI as the rhythmic source and writes
+    a new bass MIDI file into the seed directory.
+    """
+    seeds_root = _get_seeds_root(args.root)
+    seed_id = args.seed_id
+
+    # Load metadata/config to ensure the seed exists and get tempo info.
+    cfg, meta = load_seed(seed_id, seeds_root=seeds_root)
+    seed_dir = seeds_root / seed_id
+
+    # Resolve drum MIDI path: prefer meta.render_path; fall back to main asset.
+    drum_path = None
+    if meta.render_path:
+        p = Path(meta.render_path)
+        drum_path = p if p.is_absolute() else seed_dir / p
+
+    if drum_path is None or not drum_path.is_file():
+        # Try first main/midi asset.
+        for asset in meta.assets or []:
+            if getattr(asset, 'role', '') == 'main' and getattr(asset, 'kind', '') == 'midi':
+                p = Path(asset.path)
+                drum_path = p if p.is_absolute() else seed_dir / p
+                if drum_path.is_file():
+                    break
+        else:
+            print(f"Could not resolve drum MIDI for seed {seed_id}")
+            return 1
+
+    anchors = extract_drum_anchors(drum_path, ppq=int(meta.ppq))
+
+    tags = meta.tags or []
+    if args.tags:
+        tags = [t.strip() for t in args.tags.split(',') if t.strip()]
+
+    root_note = args.root_note if args.root_note is not None else 45
+
+    bass_events = generate_groove_bass(
+        anchors,
+        bpm=float(meta.bpm),
+        ppq=int(meta.ppq),
+        tags=tags,
+        mode=args.bass_mode,
+        root_note=root_note,
+        bars=int(meta.bars),
+    )
+
+    # Write bass MIDI into the seed directory.
+    bass_name = args.out if args.out else f"bass_{args.bass_mode or 'auto'}.mid"
+    bass_path = seed_dir / bass_name
+    write_midi(bass_events, ppq=int(meta.ppq), bpm=float(meta.bpm), out_path=str(bass_path))
+
+    # Append a bass asset entry to metadata.json and rebuild index.
+    meta_path = seed_dir / 'metadata.json'
+    data = json.loads(meta_path.read_text())
+    assets = data.get('assets') or []
+    assets.append(
+        {
+            'role': 'bass',
+            'kind': 'midi',
+            'path': str(bass_path),
+            'description': args.description or 'bass_from_seed',
+        }
+    )
+    data['assets'] = assets
+    meta_path.write_text(json.dumps(data, indent=2, sort_keys=True))
+
+    rebuild_index(seeds_root=seeds_root)
+    print(f"Appended bass asset to seed {seed_id}: {bass_path}")
+    return 0
+
 def _cmd_import_mid(args: argparse.Namespace) -> int:
     seeds_root = _get_seeds_root(args.root)
     tags: list[str] | None = None
@@ -243,6 +321,17 @@ def main(argv: List[str] | None = None) -> int:
     p_clone.add_argument("--prompt-text", default=None, help="Prompt text for the cloned seed")
     p_clone.add_argument("--tags", default=None, help="Comma-separated tags for the cloned seed")
     p_clone.add_argument("--summary", default=None, help="Summary text for the cloned seed")
+
+    p_bass = subparsers.add_parser("bass-from-seed", help="Generate groove-aware bass for an existing seed")
+    p_bass.add_argument("seed_id", help="Seed identifier")
+    p_bass.add_argument("--root", default=None, help="Seeds root directory (default: ./seeds)")
+    p_bass.add_argument("--out", default=None, help="Output bass MIDI filename (relative to seed dir)")
+    p_bass.add_argument("--bass-mode", default=None, help="Optional bass mode override")
+    p_bass.add_argument("--root-note", type=int, default=None, help="Bass root note (MIDI number)")
+    p_bass.add_argument("--tags", default=None, help="Override tags used for bass mode selection")
+    p_bass.add_argument("--description", default=None, help="Description to store on the bass asset")
+    p_bass.set_defaults(func=_cmd_bass_from_seed)
+
     p_import = subparsers.add_parser("import-mid", help="Import an existing MIDI file as a seed")
     p_import.add_argument("mid_path", help="Path to the MIDI file to import")
     p_import.add_argument("--root", default=None, help="Seeds root directory (default: ./seeds)")

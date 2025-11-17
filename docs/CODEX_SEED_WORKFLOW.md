@@ -27,6 +27,16 @@ Purpose: keep child patterns visible inside the parent seed’s detail view.
 5) Optional: note the child seed_id; lineage is already recorded via `parent_seed_id`.
 6) Refresh: run `rebuild_index()` or just open the TUI; it rewrites `index.json`.
 
+## Paired drums + bass render
+- Render drums + groove-aware bass and save a seed in one go:
+  `PYTHONPATH=src .venv/bin/python -m techno_engine.paired_render_cli --config <cfg> --prompt-text "<prompt>" --tags "<tags>" --summary "<summary>"`
+- Seed will contain main drum MIDI (role `main`) and a `bass` asset pointing to the paired bassline.
+
+## Bass-from-seed
+- Given an existing seed, append a groove-aware bass asset:
+  `PYTHONPATH=src .venv/bin/python -m techno_engine.seed_cli bass-from-seed <seed_id> [--bass-mode ... --root-note ... --tags ... --description ...]`
+- The CLI resolves the seed's drum MIDI, analyzes it, generates a bassline, writes it inside the seed folder, and appends a `bass/midi` asset.
+
 ## Explorer usage
 - Launch: `PYTHONPATH=src .venv/bin/python -m techno_engine.seed_explorer`
 - List: j/k move, Enter details, r refresh, q quit.

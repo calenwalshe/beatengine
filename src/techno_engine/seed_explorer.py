@@ -188,6 +188,9 @@ def _run_curses(seeds_root: Path) -> int:
         header_attr = curses.A_BOLD
         title_attr = curses.A_BOLD
         status_attr = curses.A_REVERSE
+        border_attr = curses.A_NORMAL
+        section_header_attr = curses.A_BOLD
+        asset_label_attr = curses.A_BOLD
         try:
             if curses.has_colors():
                 curses.start_color()
@@ -198,10 +201,16 @@ def _run_curses(seeds_root: Path) -> int:
                 curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_CYAN)   # selected row
                 curses.init_pair(2, curses.COLOR_YELLOW, -1)                 # headers/title
                 curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_WHITE)  # status bar
+                curses.init_pair(4, curses.COLOR_CYAN, -1)                   # borders/dividers
+                curses.init_pair(5, curses.COLOR_GREEN, -1)                  # section headers
+                curses.init_pair(6, curses.COLOR_MAGENTA, -1)                # asset labels
                 selected_attr = curses.color_pair(1) | curses.A_BOLD
                 header_attr = curses.color_pair(2) | curses.A_BOLD
                 title_attr = curses.color_pair(2) | curses.A_BOLD
                 status_attr = curses.color_pair(3)
+                border_attr = curses.color_pair(4)
+                section_header_attr = curses.color_pair(5) | curses.A_BOLD
+                asset_label_attr = curses.color_pair(6) | curses.A_BOLD
         except curses.error:
             # Keep defaults if colour init fails
             pass
@@ -237,9 +246,9 @@ def _run_curses(seeds_root: Path) -> int:
                 divider_x = left_w
                 for y in range(1, h - 1):
                     try:
-                        stdscr.addch(y, divider_x, curses.ACS_VLINE)
+                        stdscr.addch(y, divider_x, curses.ACS_VLINE, border_attr)
                     except curses.error:
-                        stdscr.addnstr(y, divider_x, "|", 1)
+                        stdscr.addnstr(y, divider_x, "|", 1, border_attr)
 
                 if selected < top:
                     top = selected
@@ -277,7 +286,14 @@ def _run_curses(seeds_root: Path) -> int:
                     for line in detail_lines:
                         if y >= h - 2:
                             break
-                        stdscr.addnstr(y, detail_x, line[: max(0, w - detail_x - 1)], max(0, w - detail_x - 1))
+                        attr = header_attr if line.startswith(("seed_dir:", "config ", "meta   ", "mode:", "tags:", "render:")) else curses.A_NORMAL
+                        stdscr.addnstr(
+                            y,
+                            detail_x,
+                            line[: max(0, w - detail_x - 1)],
+                            max(0, w - detail_x - 1),
+                            attr,
+                        )
                         y += 1
 
                 status = " j/k: move  Enter: details  r: refresh  q: quit "
@@ -368,7 +384,8 @@ def _run_curses(seeds_root: Path) -> int:
                     detail_lines.append("assets (h/l to change):")
                     for idx, asset in enumerate(assets):
                         prefix = "→" if idx == asset_idx_by_seed.get(meta.seed_id, 0) else " "
-                        detail_lines.append(f" {prefix} [{idx+1}/{len(assets)}] {asset.role}/{asset.kind}: {asset.path}")
+                        line = f" {prefix} [{idx+1}/{len(assets)}] {asset.role}/{asset.kind}: {asset.path}"
+                        detail_lines.append(line)
                         if getattr(asset, "description", None):
                             detail_lines.append(f"     desc: {asset.description}")
 
@@ -408,7 +425,15 @@ def _run_curses(seeds_root: Path) -> int:
                 for line in detail_lines:
                     if y >= h - 2:
                         break
-                    stdscr.addnstr(y, 0, line[: w - 1], w - 1)
+                    # Highlight section headers and asset labels for readability.
+                    if line in {"assets (h/l to change):", "selected asset detail:", "summary:", "prompt:", "drum pattern (1 bar, 16 steps):"}:
+                        attr = section_header_attr
+                    elif line.startswith(" ") and "[" in line and "/" in line and ":" in line:
+                        # asset listing line
+                        attr = asset_label_attr
+                    else:
+                        attr = curses.A_NORMAL
+                    stdscr.addnstr(y, 0, line[: w - 1], w - 1, attr)
                     y += 1
 
                 status = " DETAIL: j/k seed  h/l asset  q/Esc: back "
