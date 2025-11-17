@@ -57,3 +57,18 @@ def test_run_config_saves_seed(tmp_path: Path, monkeypatch) -> None:
     assert meta["tags"] == ["m1", "test"]
     assert meta["prompt"] == "warehouse m1 groove"
     assert meta["summary"] == "unit test seed"
+
+    # Canonical drum location and relative asset paths.
+    assert meta["render_path"] == "drums/main.mid"
+    drums_main = seed_dir / "drums" / "main.mid"
+    assert drums_main.is_file()
+
+    assets = meta.get("assets") or []
+    assert assets
+    for a in assets:
+        if not isinstance(a, dict):
+            continue
+        p = a.get("path", "")
+        assert not str(p).startswith("out/")
+        assert not str(p).startswith("/")
+

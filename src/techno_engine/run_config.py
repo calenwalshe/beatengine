@@ -46,12 +46,20 @@ def main(argv: List[str] | None = None) -> int:
 
     cfg = load_engine_config(args.config)
     random.seed(cfg.seed)
-    os.makedirs(os.path.dirname(cfg.out) or ".", exist_ok=True)
+
+    # Determine output path: in seed workflows we avoid hard-coding into out/.
+    out_path = cfg.out
+    if args.save_seed:
+        # Only use the basename when saving a seed; write into CWD.
+        base = os.path.basename(str(cfg.out)) or "render.mid"
+        out_path = os.path.join(".", base)
+
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
 
     mode = cfg.mode.lower()
     if mode == "m1":
         events = build_backbone_events(bpm=cfg.bpm, ppq=cfg.ppq, bars=cfg.bars)
-        write_midi(events, ppq=cfg.ppq, bpm=cfg.bpm, out_path=cfg.out)
+        write_midi(events, ppq=cfg.ppq, bpm=cfg.bpm, out_path=out_path)
     elif mode == "m2":
         # Use provided layer configs or sensible defaults
         kick = cfg.kick or LayerConfig(steps=16, fills=4, note=36, velocity=110)
@@ -89,7 +97,7 @@ def main(argv: List[str] | None = None) -> int:
         # backbeats from defaults if not overridden
         ev_sn = build_layer(cfg.bpm, cfg.ppq, cfg.bars, snare)
         ev_cl = build_layer(cfg.bpm, cfg.ppq, cfg.bars, clap)
-        write_midi(list(chain(ev_k, ev_hc, ev_ho, ev_sn, ev_cl)), cfg.ppq, cfg.bpm, cfg.out)
+        write_midi(list(chain(ev_k, ev_hc, ev_ho, ev_sn, ev_cl)), cfg.ppq, cfg.bpm, out_path)
     elif mode == "m4":
         rng = random.Random(cfg.seed)
         res = run_session(
@@ -108,7 +116,7 @@ def main(argv: List[str] | None = None) -> int:
             log_path=cfg.log_path,
         )
         all_events = list(chain.from_iterable(res.events_by_layer.values()))
-        write_midi(all_events, cfg.ppq, cfg.bpm, cfg.out)
+        write_midi(all_events, cfg.ppq, cfg.bpm, out_path)
     else:
         raise SystemExit(f"Unknown mode: {mode}")
 
@@ -124,7 +132,7 @@ def main(argv: List[str] | None = None) -> int:
         meta = save_seed(
             cfg,
             config_path=args.config,
-            render_path=cfg.out,
+            render_path=out_path,
             prompt=args.prompt_text,
             summary=args.summary,
             tags=tags,

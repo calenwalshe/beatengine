@@ -3,9 +3,17 @@
 Quick reference for generating seeds and nested variations so the TUI shows everything in one place (Enter → detail, h/l to flip assets).
 
 ## Seed layout
-- Each seed lives under `seeds/<seed_id>/` with `config.json`, `metadata.json`, and assets (MIDI/audio/etc.).
+- Each seed lives under `seeds/<seed_id>/` with:
+  - `config.json` — canonical drum config snapshot.
+  - `metadata.json` — SeedMetadata JSON.
+  - `drums/main.mid` — main rhythm pattern for this seed.
+  - Optional subfolders: `drums/variants/`, `bass/`, `bass/variants/`, `leads/`, `analysis/`.
 - `metadata.json` (key fields): `seed_id`, `engine_mode`, `bpm`, `bars`, `ppq`, `rng_seed`, `config_path`, `render_path`, `tags`, `summary`, `prompt`, `parent_seed_id`, `assets` (list of `{role, kind, path, description}`).
-- `rebuild_index()` copies the main render into the seed folder if needed, normalizes assets, and rewrites `metadata.json` and `index.json`.
+- `render_path` is always `"drums/main.mid"` and all `assets[].path` entries are
+  relative to the seed directory (e.g. `drums/main.mid`, `bass/main.mid`,
+  `bass/variants/…`).
+- `rebuild_index()` normalizes legacy seeds into this layout and rewrites
+  `metadata.json` and `index.json` accordingly.
 
 ## Baseline render (new seed)
 1) Start from a config (e.g., `configs/m4_warehouse_sync.json`).

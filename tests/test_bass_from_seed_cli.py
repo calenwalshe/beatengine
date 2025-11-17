@@ -67,10 +67,10 @@ def test_bass_from_seed_appends_bass_asset(tmp_path: Path, monkeypatch) -> None:
     roles = {a.get("role") for a in assets if isinstance(a, dict)}
     assert "bass" in roles
 
-    # Find bass asset path and ensure it exists.
+    # Find bass asset path and ensure it exists under bass/variants.
     bass_assets = [a for a in assets if isinstance(a, dict) and a.get("role") == "bass"]
     assert bass_assets
     bass_rel = Path(bass_assets[0]["path"])
-    if not bass_rel.is_absolute():
-        bass_rel = (tmp_path / bass_rel).resolve()
-    assert bass_rel.is_file()
+    assert str(bass_rel).startswith("bass/")
+    bass_abs = (seeds_root / seed_id / bass_rel).resolve()
+    assert bass_abs.is_file()

@@ -43,7 +43,9 @@ def test_seed_cli_import_mid_creates_seed(tmp_path: Path, monkeypatch, capsys) -
     assert meta_path.is_file()
     meta = json.loads(meta_path.read_text())
 
-    assert meta["render_path"].endswith("demo_import.mid")
+    # Canonical drum location for imported MIDI.
+    assert meta["render_path"] == "drums/main.mid"
+    assert (seed_dir / meta["render_path"]).is_file()
     assert meta["engine_mode"] == "external"
     assert meta["tags"] == ["external", "import_cli"]
     assert meta["summary"] == "imported demo midi"

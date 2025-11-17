@@ -62,5 +62,9 @@ def test_seed_save_and_load_roundtrip(tmp_path: Path) -> None:
     primary = loaded_meta.assets[0]
     assert primary.role == "main"
     assert primary.kind == "midi"
-    assert primary.path == render_path
+
+    # Canonical drum location inside seed folder.
+    assert primary.path == "drums/main.mid"
+    assert loaded_meta.render_path == "drums/main.mid"
+    assert (seed_dir / primary.path).is_file()
 

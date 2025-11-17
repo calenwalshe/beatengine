@@ -149,6 +149,108 @@ def _extract_drum_pattern(midi_path: Path, ppq: int) -> Optional[str]:
     return "\n".join([_line("kick"), _line("snare"), _line("hat")])
 
 
+
+def _canonicalise_seed_layout(seed_dir: Path, meta: "SeedMetadata") -> bool:
+    """Normalise a seed directory to the canonical layout.
+
+    - Ensure drums/main.mid exists and meta.render_path points to it.
+    - Ensure there is a main/midi asset pointing at drums/main.mid.
+    - Convert any asset paths that are inside the seed directory to
+      relative paths.
+    """
+
+    changed = False
+
+    # Canonical drums path
+    drums_dir = seed_dir / "drums"
+    drums_dir.mkdir(parents=True, exist_ok=True)
+    dest_render = drums_dir / "main.mid"
+
+    # If render_path already points to drums/main.mid, try to ensure file exists.
+    if meta.render_path:
+        rp = Path(meta.render_path)
+        if rp == Path("drums/main.mid"):
+            if not dest_render.exists():
+                try:
+                    dest_render.touch(exist_ok=True)
+                except OSError:
+                    pass
+        else:
+            # Legacy render_path: attempt to copy from old location.
+            src = Path(meta.render_path)
+            if not src.is_absolute():
+                # Treat as relative to CWD; this matches historical behaviour.
+                src = (Path.cwd() / src).resolve()
+            try:
+                if src.is_file():
+                    if src.resolve() != dest_render.resolve():
+                        dest_render.parent.mkdir(parents=True, exist_ok=True)
+                        dest_render.write_bytes(src.read_bytes())
+                        changed = True
+                elif not dest_render.exists():
+                    dest_render.touch(exist_ok=True)
+            except OSError:
+                if not dest_render.exists():
+                    dest_render.touch(exist_ok=True)
+            # In all legacy cases, point render_path at drums/main.mid.
+            if meta.render_path != "drums/main.mid":
+                meta.render_path = "drums/main.mid"
+                changed = True
+    else:
+        if not dest_render.exists():
+            try:
+                dest_render.touch(exist_ok=True)
+            except OSError:
+                pass
+        if meta.render_path != "drums/main.mid":
+            meta.render_path = "drums/main.mid"
+            changed = True
+
+    # Ensure a main/midi asset pointing at drums/main.mid exists.
+    have_main = False
+    for asset in meta.assets or []:
+        if getattr(asset, "role", "") == "main" and getattr(asset, "kind", "") == "midi":
+            # Normalise to relative drums/main.mid if possible.
+            try:
+                raw = Path(asset.path)
+                abs_p = raw if raw.is_absolute() else seed_dir / raw
+                rel = abs_p.relative_to(seed_dir)
+                if str(rel) != asset.path:
+                    asset.path = str(rel)
+                    changed = True
+            except Exception:
+                pass
+            if asset.path == "drums/main.mid":
+                have_main = True
+    if not have_main:
+        meta.assets.insert(0,
+            SeedAsset(
+                role="main",
+                kind="midi",
+                path="drums/main.mid",
+                description="primary render (migrated)",
+            ),
+        )
+        changed = True
+
+    # Normalise all asset paths that live under the seed directory to be relative.
+    for asset in meta.assets or []:
+        raw = Path(getattr(asset, "path", ""))
+        try:
+            abs_p = raw if raw.is_absolute() else seed_dir / raw
+            # Only normalise if within seed_dir.
+            rel = abs_p.relative_to(seed_dir)
+            if str(rel) != getattr(asset, "path", ""):
+                asset.path = str(rel)
+                changed = True
+        except Exception:
+            # If relative_to fails or path is invalid, leave as-is.
+            continue
+
+    return changed
+
+
+
 def seeds_module_version() -> str:
     """Return a placeholder version string for smoke tests and demos."""
 
@@ -220,30 +322,9 @@ def rebuild_index(seeds_root: str | Path | None = None) -> list[SeedMetadata]:
             if (not data.get("assets")) and meta.assets:
                 needs_write = True
 
-            if meta.render_path:
-                src = Path(meta.render_path)
-                if not src.is_absolute():
-                    src = (Path.cwd() / src).resolve()
-                dest = seed_dir / src.name
-                try:
-                    if src.is_file() and src != dest:
-                        seed_dir.mkdir(parents=True, exist_ok=True)
-                        if not dest.exists():
-                            shutil.copyfile(src, dest)
-                        meta.render_path = str(dest)
-                        if not any(getattr(a, 'path', None) == str(dest) for a in meta.assets):
-                            meta.assets.insert(
-                                0,
-                                SeedAsset(
-                                    role="main",
-                                    kind="midi",
-                                    path=str(dest),
-                                    description="primary render (copied into seed folder)",
-                                ),
-                            )
-                        needs_write = True
-                except OSError:
-                    pass
+            # Canonicalise seed layout (drums/main.mid, relative asset paths).
+            if _canonicalise_seed_layout(seed_dir, meta):
+                needs_write = True
 
             # Populate drum pattern previews for MIDI assets when possible.
             for asset in meta.assets or []:
@@ -319,7 +400,8 @@ def save_seed(
         Path to the JSON config file that produced `config`. This exact
         JSON is copied into the seed folder to enable perfect replay.
     render_path:
-        Path to the rendered MIDI file. We record it but do not move it.
+        Path to the rendered MIDI file. This will be copied into
+        drums/main.mid under the seed folder for canonical storage.
     prompt / summary / tags / prompt_context:
         Optional metadata describing the prompt and high-level intent.
     seeds_root:
@@ -346,8 +428,32 @@ def save_seed(
 
     created_at = datetime.now(timezone.utc).isoformat()
 
-    assets = [SeedAsset(role="main", kind="midi", path=str(render_path), description="primary render",
-                            drum_pattern_preview=_extract_drum_pattern(Path(render_path), config.ppq))]
+    # Canonical drum location inside the seed folder.
+    drums_dir = seed_dir / "drums"
+    drums_dir.mkdir(parents=True, exist_ok=True)
+    src_render = Path(render_path)
+    dest_render = drums_dir / "main.mid"
+    try:
+        if src_render.is_file():
+            shutil.copyfile(src_render, dest_render)
+        else:
+            # If the source does not exist (e.g. tests), create an empty placeholder.
+            dest_render.touch(exist_ok=True)
+    except OSError:
+        # In case of copy issues, still record the intended canonical path.
+        dest_render.touch(exist_ok=True)
+
+    rel_render_path = str(dest_render.relative_to(seed_dir))
+
+    assets = [
+        SeedAsset(
+            role="main",
+            kind="midi",
+            path=rel_render_path,
+            description="primary render",
+            drum_pattern_preview=_extract_drum_pattern(dest_render, config.ppq),
+        )
+    ]
 
     meta = SeedMetadata(
         seed_id=seed_id,
@@ -358,7 +464,7 @@ def save_seed(
         ppq=int(config.ppq),
         rng_seed=int(config.seed),
         config_path=str(dest_cfg_path.name),
-        render_path=render_path,
+        render_path=rel_render_path,
         log_path=log_path,
         prompt=prompt,
         prompt_context=prompt_context,

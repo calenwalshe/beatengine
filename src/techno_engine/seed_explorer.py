@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -219,6 +220,7 @@ def _run_curses(seeds_root: Path) -> int:
         selected = 0
         top = 0
         last_message = ""
+        pending_delete: Optional[str] = None
 
         while True:
             h, w = stdscr.getmaxyx()
@@ -447,6 +449,31 @@ def _run_curses(seeds_root: Path) -> int:
 
             ch = stdscr.getch()
 
+            # Pending delete confirmation takes precedence.
+            if pending_delete is not None:
+                if ch in (ord("y"), ord("Y")):
+                    # Delete the seed directory and refresh metas.
+                    target = pending_delete
+                    try:
+                        shutil.rmtree(seeds_root / target)
+                        last_message = f"Deleted seed {target}"
+                    except OSError:
+                        last_message = f"Failed to delete seed {target}"
+                    # Refresh list after deletion.
+                    refreshed = rebuild_index(seeds_root=seeds_root)
+                    metas[:] = refreshed
+                    if selected >= len(metas):
+                        selected = max(0, len(metas) - 1)
+                    pending_delete = None
+                    if not metas:
+                        # If no seeds remain, exit explorer.
+                        return
+                else:
+                    # Any non-yes key cancels delete.
+                    last_message = "Delete cancelled"
+                    pending_delete = None
+                continue
+
             # Global quit / back
             if ch in (ord("q"), ord("Q"), 27):  # Esc
                 if mode == "list":
@@ -470,6 +497,11 @@ def _run_curses(seeds_root: Path) -> int:
                         if selected >= len(metas):
                             selected = max(0, len(metas) - 1)
                     last_message = "Refreshed seed index"
+                elif ch == ord("D"):
+                    # Prompt for delete confirmation (Shift-D).
+                    if metas:
+                        pending_delete = metas[selected].seed_id
+                        last_message = f"Confirm delete {pending_delete}? y/N"
                 elif ch in (curses.KEY_ENTER, 10, 13, ord("\n"), ord("\r")):
                     # Enter detail mode for current seed
                     mode = "detail"
@@ -484,6 +516,10 @@ def _run_curses(seeds_root: Path) -> int:
                     if selected > 0:
                         selected -= 1
                         last_message = ""
+                elif ch == ord("D"):
+                    if metas:
+                        pending_delete = metas[selected].seed_id
+                        last_message = f"Confirm delete {pending_delete}? y/N"
                 elif ch in (curses.KEY_RIGHT, ord("l"), ord("]")):
                     cur = asset_idx_by_seed.get(meta.seed_id, 0)
                     if getattr(meta, "assets", None):

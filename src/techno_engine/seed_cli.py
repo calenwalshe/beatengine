@@ -237,20 +237,30 @@ def _cmd_bass_from_seed(args: argparse.Namespace) -> int:
         bars=int(meta.bars),
     )
 
-    # Write bass MIDI into the seed directory.
-    bass_name = args.out if args.out else f"bass_{args.bass_mode or 'auto'}.mid"
-    bass_path = seed_dir / bass_name
-    write_midi(bass_events, ppq=int(meta.ppq), bpm=float(meta.bpm), out_path=str(bass_path))
+    # Write bass MIDI into the canonical bass folder inside the seed directory.
+    bass_dir = seed_dir / 'bass'
+    bass_dir.mkdir(parents=True, exist_ok=True)
+    if args.out:
+        dest_name = args.out
+    elif args.bass_mode:
+        dest_name = f"variants/bass_{args.bass_mode}.mid"
+    else:
+        dest_name = "variants/bass_auto.mid"
+
+    dest_path = bass_dir / dest_name
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    write_midi(bass_events, ppq=int(meta.ppq), bpm=float(meta.bpm), out_path=str(dest_path))
 
     # Append a bass asset entry to metadata.json and rebuild index.
     meta_path = seed_dir / 'metadata.json'
     data = json.loads(meta_path.read_text())
     assets = data.get('assets') or []
+    rel_bass_path = str(dest_path.relative_to(seed_dir))
     assets.append(
         {
             'role': 'bass',
             'kind': 'midi',
-            'path': str(bass_path),
+            'path': rel_bass_path,
             'description': args.description or 'bass_from_seed',
         }
     )
@@ -258,7 +268,7 @@ def _cmd_bass_from_seed(args: argparse.Namespace) -> int:
     meta_path.write_text(json.dumps(data, indent=2, sort_keys=True))
 
     rebuild_index(seeds_root=seeds_root)
-    print(f"Appended bass asset to seed {seed_id}: {bass_path}")
+    print(f"Appended bass asset to seed {seed_id}: {rel_bass_path}")
     return 0
 
 def _cmd_import_mid(args: argparse.Namespace) -> int:

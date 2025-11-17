@@ -34,7 +34,7 @@ def test_paired_render_creates_seed_with_drum_and_bass(tmp_path: Path, monkeypat
     )
     assert rc == 0
 
-    # Check MIDI outputs
+    # Check top-level MIDI outputs still exist (temporary renders)
     drums_path = tmp_path / "drums.mid"
     bass_path = tmp_path / "drums_bass.mid"
     assert drums_path.is_file()
@@ -61,10 +61,15 @@ def test_paired_render_creates_seed_with_drum_and_bass(tmp_path: Path, monkeypat
     assert "main" in roles
     assert "bass" in roles
 
-    # The bass asset path should point to an existing file.
+    assets = meta.get("assets") or []
+    roles = {a.get("role") for a in assets if isinstance(a, dict)}
+    assert "main" in roles
+    assert "bass" in roles
+
+    # The bass asset path should point to an existing file under the seed directory.
     bass_assets = [a for a in assets if isinstance(a, dict) and a.get("role") == "bass"]
     assert bass_assets
-    bass_asset_path = Path(bass_assets[0]["path"])
-    if not bass_asset_path.is_absolute():
-        bass_asset_path = (tmp_path / bass_asset_path).resolve()
-    assert bass_asset_path.is_file()
+    bass_rel = Path(bass_assets[0]["path"])
+    assert str(bass_rel).startswith("bass/")
+    bass_abs = (seed_dir / bass_rel).resolve()
+    assert bass_abs.is_file()

@@ -69,12 +69,16 @@ def main(argv: List[str] | None = None) -> int:
     cfg = load_engine_config(args.config)
     random.seed(cfg.seed)
 
-    # Render drums using the same semantics as run_config.main
-    os.makedirs(os.path.dirname(cfg.out) or ".", exist_ok=True)
+    # Determine output path for drums: avoid out/ when creating seeds.
+    drum_out = cfg.out
+    base = os.path.basename(str(cfg.out)) or "drums.mid"
+    drum_out = os.path.join(".", base)
+    os.makedirs(os.path.dirname(drum_out) or ".", exist_ok=True)
+
     mode = cfg.mode.lower()
     if mode == "m1":
         events = build_backbone_events(bpm=cfg.bpm, ppq=cfg.ppq, bars=cfg.bars)
-        write_midi(events, ppq=cfg.ppq, bpm=cfg.bpm, out_path=cfg.out)
+        write_midi(events, ppq=cfg.ppq, bpm=cfg.bpm, out_path=drum_out)
     elif mode == "m2":
         kick = cfg.kick or LayerConfig(steps=16, fills=4, note=36, velocity=110)
         hatc = cfg.hat_c or LayerConfig(
@@ -110,7 +114,7 @@ def main(argv: List[str] | None = None) -> int:
         ev_ho = build_layer(cfg.bpm, cfg.ppq, cfg.bars, hato, closed_hat_ticks_by_bar=ch_map)
         ev_sn = build_layer(cfg.bpm, cfg.ppq, cfg.bars, snare)
         ev_cl = build_layer(cfg.bpm, cfg.ppq, cfg.bars, clap)
-        write_midi(list(chain(ev_k, ev_hc, ev_ho, ev_sn, ev_cl)), cfg.ppq, cfg.bpm, cfg.out)
+        write_midi(list(chain(ev_k, ev_hc, ev_ho, ev_sn, ev_cl)), cfg.ppq, cfg.bpm, drum_out)
     elif mode == "m4":
         rng = random.Random(cfg.seed)
         res = run_session(
@@ -129,14 +133,14 @@ def main(argv: List[str] | None = None) -> int:
             log_path=cfg.log_path,
         )
         all_events = list(chain.from_iterable(res.events_by_layer.values()))
-        write_midi(all_events, cfg.ppq, cfg.bpm, cfg.out)
+        write_midi(all_events, cfg.ppq, cfg.bpm, drum_out)
     else:
         raise SystemExit(f"Unknown mode for paired render: {mode}")
 
     print(f"Wrote drums to {cfg.out} ({cfg.mode}, bpm={cfg.bpm}, ppq={cfg.ppq}, bars={cfg.bars})")
 
     # Generate groove-aware bass using the rendered drums.
-    drum_midi_path = Path(cfg.out)
+    drum_midi_path = Path(drum_out)
     anchors = extract_drum_anchors(drum_midi_path, ppq=cfg.ppq)
 
     tags_list = _parse_tags(args.tags)
@@ -153,7 +157,7 @@ def main(argv: List[str] | None = None) -> int:
     )
 
     # Derive a bass output path next to the drums.
-    drum_out = Path(cfg.out)
+    drum_out = Path(drum_out)
     if drum_out.suffix.lower() == ".mid":
         bass_out = drum_out.with_name(drum_out.stem + "_bass.mid")
     else:
@@ -166,7 +170,7 @@ def main(argv: List[str] | None = None) -> int:
     meta = save_seed(
         cfg,
         config_path=args.config,
-        render_path=cfg.out,
+        render_path=str(drum_out),
         prompt=args.prompt_text,
         summary=args.summary,
         tags=tags_list,
@@ -183,11 +187,26 @@ def main(argv: List[str] | None = None) -> int:
 
         data = json.loads(meta_path.read_text())
         assets = data.get("assets") or []
+
+        # Move/copy bass into canonical bass/main.mid inside the seed folder.
+        bass_dir = seed_dir / "bass"
+        bass_dir.mkdir(parents=True, exist_ok=True)
+        dest_bass = bass_dir / "main.mid"
+        try:
+            from shutil import copyfile
+
+            copyfile(bass_out, dest_bass)
+        except Exception:
+            # If copy fails, at least ensure the path exists logically.
+            dest_bass.touch(exist_ok=True)
+
+        rel_bass_path = str(dest_bass.relative_to(seed_dir))
+
         assets.append(
             {
                 "role": "bass",
                 "kind": "midi",
-                "path": str(bass_out),
+                "path": rel_bass_path,
                 "description": "paired groove-aware bassline",
             }
         )
