@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List
 
 from .run_config import main as run_config_main
-from .seeds import SeedMetadata, load_seed, rebuild_index, import_mid_as_seed
+from .seeds import SeedMetadata, load_seed, rebuild_index, import_mid_as_seed, delete_seed_dir
 from .drum_analysis import extract_drum_anchors
 from .groove_bass import generate_groove_bass
 from .midi_writer import write_midi
@@ -271,6 +271,48 @@ def _cmd_bass_from_seed(args: argparse.Namespace) -> int:
     print(f"Appended bass asset to seed {seed_id}: {rel_bass_path}")
     return 0
 
+def _cmd_delete(args: argparse.Namespace) -> int:
+    """Delete a seed directory and rebuild the index.
+
+    This mirrors the TUI delete behaviour (Shift+D + confirm) but is suitable
+    for scripting and automation.
+    """
+    seeds_root = _get_seeds_root(args.root)
+    seed_id = args.seed_id
+    seed_dir = seeds_root / seed_id
+
+    if not seed_dir.is_dir():
+        print(f"Seed {seed_id} not found under {seeds_root}")
+        return 1
+
+    if not args.yes:
+        # Print a short summary if metadata exists.
+        meta_path = seed_dir / 'metadata.json'
+        if meta_path.is_file():
+            try:
+                raw = json.loads(meta_path.read_text())
+                mode = raw.get('engine_mode')
+                bpm = raw.get('bpm')
+                tags = raw.get('tags') or []
+                tag_str = ','.join(tags) if tags else '-'
+                print(f"Seed: {seed_id} | mode={mode} bpm={bpm} tags={tag_str}")
+            except Exception:
+                pass
+        resp = input(f"Delete seed {seed_id} under {seed_dir}? [y/N]: ").strip()
+        if not resp or resp[0].lower() != 'y':
+            print('Aborted')
+            return 1
+
+    try:
+        delete_seed_dir(seed_id, seeds_root)
+    except FileNotFoundError as exc:
+        print(str(exc))
+        return 1
+
+    print(f"Deleted seed {seed_id} under {seeds_root}")
+    return 0
+
+
 def _cmd_import_mid(args: argparse.Namespace) -> int:
     seeds_root = _get_seeds_root(args.root)
     tags: list[str] | None = None
@@ -353,6 +395,12 @@ def main(argv: List[str] | None = None) -> int:
     p_import.add_argument("--tags", default=None, help="Comma-separated tags for the imported seed")
     p_import.add_argument("--summary", default=None, help="Summary/description of the imported MIDI")
     p_import.set_defaults(func=_cmd_import_mid)
+
+    p_delete = subparsers.add_parser("delete", help="Delete a seed and its assets")
+    p_delete.add_argument("seed_id", help="Seed identifier to delete")
+    p_delete.add_argument("--root", default=None, help="Seeds root directory (default: ./seeds)")
+    p_delete.add_argument("--yes", "-y", action="store_true", help="Delete without interactive confirmation")
+    p_delete.set_defaults(func=_cmd_delete)
 
     p_clone.set_defaults(func=_cmd_clone)
 

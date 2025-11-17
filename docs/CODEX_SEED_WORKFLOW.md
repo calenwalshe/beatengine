@@ -55,3 +55,26 @@ Purpose: keep child patterns visible inside the parent seed’s detail view.
 - Always append a SeedAsset entry after generating a new file.
 - Keep BPM/PPQ/Bars consistent unless intentionally changing them.
 - Use descriptive prompts/summaries/tags for future automation and UI clarity.
+
+## Deleting seeds
+
+You can delete seeds (including all assets under `seeds/<seed_id>/`) via:
+
+- TUI:
+  - Open the explorer:
+    `PYTHONPATH=src .venv/bin/python -m techno_engine.seed_explorer`
+  - In list or detail mode:
+    - Press **Shift+D** on the selected seed to mark it for deletion.
+    - Confirm with `y`/`Y` when prompted (`Confirm delete <seed_id>? y/N`).
+    - Any other key cancels the delete.
+  - On confirm, the entire seed folder is removed and the index is rebuilt.
+
+- CLI:
+  - `PYTHONPATH=src .venv/bin/python -m techno_engine.seed_cli delete --seed-id <seed_id> [--root seeds] [--yes]`
+  - Without `--yes`, the CLI prints a short summary and prompts:
+    `Delete seed <seed_id> under <path>? [y/N]:`
+  - With `--yes`, it deletes without prompting.
+  - On success it removes `seeds/<seed_id>` and runs `rebuild_index`.
+  - On missing seed or failures it exits with a non-zero status.
+
+Deletion must never touch anything outside the configured seeds root.

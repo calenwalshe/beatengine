@@ -626,3 +626,19 @@ def import_mid_as_seed(
             pass
 
     return meta
+
+
+
+def delete_seed_dir(seed_id: str, seeds_root: Path) -> None:
+    """Delete a seed directory and rebuild the index.
+
+    This removes `seeds_root/seed_id` recursively and then calls
+    `rebuild_index(seeds_root=...)` so that downstream tools see
+    the updated state.
+    """
+
+    seed_dir = seeds_root / seed_id
+    if not seed_dir.is_dir():
+        raise FileNotFoundError(f"Seed {seed_id} not found under {seeds_root}")
+    shutil.rmtree(seed_dir)
+    rebuild_index(seeds_root=seeds_root)
