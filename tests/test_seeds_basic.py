@@ -57,3 +57,10 @@ def test_seed_save_and_load_roundtrip(tmp_path: Path) -> None:
     assert loaded_cfg.ppq == cfg.ppq
     assert loaded_cfg.seed == cfg.seed
 
+    # New: assets should include the primary render midi
+    assert loaded_meta.assets
+    primary = loaded_meta.assets[0]
+    assert primary.role == "main"
+    assert primary.kind == "midi"
+    assert primary.path == render_path
+

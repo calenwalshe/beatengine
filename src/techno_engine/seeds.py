@@ -11,12 +11,24 @@ Higher-level CLIs and a TUI explorer will build on top of this.
 from __future__ import annotations
 
 import json
+import shutil
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .config import EngineConfig, load_engine_config
+
+
+@dataclass
+class SeedAsset:
+    """Represents an asset associated with a seed (e.g., MIDI, config)."""
+
+    role: str  # drums, bass, lead, etc.
+    kind: str  # midi, config, audio, etc.
+    path: str  # path to the asset (relative to repo or seeds root)
+    description: Optional[str] = None
+    drum_pattern_preview: Optional[str] = None
 
 
 @dataclass
@@ -42,9 +54,99 @@ class SeedMetadata:
     prompt_context: Optional[Dict[str, Any]] = None
     summary: Optional[str] = None
     tags: List[str] = field(default_factory=list)
+    assets: List[SeedAsset] = field(default_factory=list)
 
     parent_seed_id: Optional[str] = None
     file_version: int = 1
+
+    def __post_init__(self) -> None:
+        # Normalise assets to SeedAsset instances when loading from JSON.
+        normalised: list[SeedAsset] = []
+        for asset in getattr(self, 'assets', []) or []:
+            if isinstance(asset, SeedAsset):
+                normalised.append(asset)
+            elif isinstance(asset, dict):
+                try:
+                    normalised.append(SeedAsset(**asset))
+                except TypeError:
+                    # Skip malformed asset entries
+                    continue
+        self.assets = normalised
+
+        # If legacy metadata had no assets, bootstrap a primary render asset.
+        if not self.assets and self.render_path:
+            self.assets = [
+                SeedAsset(
+                    role='main',
+                    kind='midi',
+                    path=str(self.render_path),
+                    description='primary render (legacy)',
+                )
+            ]
+
+        # If legacy metadata had no assets, bootstrap a primary render asset.
+        if not self.assets and self.render_path:
+            self.assets = [
+                SeedAsset(
+                    role='main',
+                    kind='midi',
+                    path=str(self.render_path),
+                    description='primary render (legacy)',
+                )
+            ]
+
+
+def _extract_drum_pattern(midi_path: Path, ppq: int) -> Optional[str]:
+    """Extract a simple 16-step drum pattern preview for kicks/snares/hats."""
+
+    try:
+        import mido
+    except ImportError:
+        return None
+
+    path = Path(midi_path)
+    if not path.exists():
+        return None
+
+    try:
+        mid = mido.MidiFile(path)
+    except Exception:
+        return None
+
+    ticks_per_beat = mid.ticks_per_beat or ppq or 480
+    ticks_per_step = max(1, int(round(ticks_per_beat / 4)))  # 16th notes
+    steps = 16
+
+    note_roles = {
+        "kick": {36},
+        "snare": {37, 38, 39, 40},
+        "hat": {42, 44, 46},
+    }
+    hits: Dict[str, List[bool]] = {role: [False] * steps for role in note_roles}
+
+    for track in mid.tracks:
+        tick = 0
+        for msg in track:
+            tick += int(getattr(msg, "time", 0))
+            if getattr(msg, "type", None) != "note_on":
+                continue
+            if getattr(msg, "velocity", 0) <= 0:
+                continue
+
+            step = int(tick // ticks_per_step)
+            if 0 <= step < steps:
+                for role, notes in note_roles.items():
+                    if getattr(msg, "note", -1) in notes:
+                        hits[role][step] = True
+
+    if not any(any(v) for v in hits.values()):
+        return None
+
+    def _line(role: str) -> str:
+        patt = "".join("x" if hit else "." for hit in hits[role])
+        return f"{role:<5}: {patt}"
+
+    return "\n".join([_line("kick"), _line("snare"), _line("hat")])
 
 
 def seeds_module_version() -> str:
@@ -111,14 +213,73 @@ def rebuild_index(seeds_root: str | Path | None = None) -> list[SeedMetadata]:
             continue
         try:
             data = json.loads(meta_path.read_text())
-            metas.append(SeedMetadata(**data))
+            meta = SeedMetadata(**data)
+
+            needs_write = False
+
+            if (not data.get("assets")) and meta.assets:
+                needs_write = True
+
+            if meta.render_path:
+                src = Path(meta.render_path)
+                if not src.is_absolute():
+                    src = (Path.cwd() / src).resolve()
+                dest = seed_dir / src.name
+                try:
+                    if src.is_file() and src != dest:
+                        seed_dir.mkdir(parents=True, exist_ok=True)
+                        if not dest.exists():
+                            shutil.copyfile(src, dest)
+                        meta.render_path = str(dest)
+                        if not any(getattr(a, 'path', None) == str(dest) for a in meta.assets):
+                            meta.assets.insert(
+                                0,
+                                SeedAsset(
+                                    role="main",
+                                    kind="midi",
+                                    path=str(dest),
+                                    description="primary render (copied into seed folder)",
+                                ),
+                            )
+                        needs_write = True
+                except OSError:
+                    pass
+
+            # Populate drum pattern previews for MIDI assets when possible.
+            for asset in meta.assets or []:
+                if getattr(asset, 'kind', '') != 'midi':
+                    continue
+                if getattr(asset, 'drum_pattern_preview', None):
+                    continue
+                cand_paths = []
+                raw = Path(getattr(asset, 'path', ''))
+                if raw.is_absolute():
+                    cand_paths.append(raw)
+                else:
+                    cand_paths.extend([seed_dir / raw, seed_dir / raw.name, Path.cwd() / raw])
+                preview = None
+                for cand in cand_paths:
+                    try:
+                        if cand.exists():
+                            preview = _extract_drum_pattern(cand, meta.ppq)
+                            if preview:
+                                break
+                    except Exception:
+                        continue
+                if preview:
+                    asset.drum_pattern_preview = preview
+                    needs_write = True
+
+            if needs_write:
+                meta_path.write_text(json.dumps(asdict(meta), indent=2, sort_keys=True))
+
+            metas.append(meta)
         except Exception:
             continue
 
     idx_path = _index_path(root)
     idx_path.write_text(json.dumps([asdict(m) for m in metas], indent=2, sort_keys=True))
     return metas
-
 
 def update_index(meta: SeedMetadata, seeds_root: str | Path | None = None) -> None:
     """Update or create index.json entry for a single seed."""
@@ -185,6 +346,9 @@ def save_seed(
 
     created_at = datetime.now(timezone.utc).isoformat()
 
+    assets = [SeedAsset(role="main", kind="midi", path=str(render_path), description="primary render",
+                            drum_pattern_preview=_extract_drum_pattern(Path(render_path), config.ppq))]
+
     meta = SeedMetadata(
         seed_id=seed_id,
         created_at=created_at,
@@ -200,6 +364,7 @@ def save_seed(
         prompt_context=prompt_context,
         summary=summary,
         tags=list(tags) if tags is not None else [],
+        assets=assets,
         parent_seed_id=parent_seed_id,
         file_version=1,
     )
