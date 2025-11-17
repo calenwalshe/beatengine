@@ -1,253 +1,271 @@
-# Techno Rhythm Engine — Berlin-Style Roadmap Build
+# Beatengine — Techno Rhythm & Groove-Aware Bass Engine
 
-[![Tests](https://img.shields.io/badge/tests-96%20passed-green)](#unit-tests)
-[![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen)](#unit-tests)
+Beatengine is a Python techno rhythm engine that generates **drums and bass**
+from configs and seeds. It started as a Berlin-style techno MIDI engine
+(M0–M4) and has evolved into a **seed-aware, groove-aware** system with:
 
-This repository is an implementation of the "Berlin-Style Techno MIDI Engine" roadmap. It generates hypnotic Berlin/Berghain-style techno loops with high-resolution PPQ, microtiming guardrails, long-horizon feedback, and configurable probabilities.
+- Config-driven drum engines (m1/m2/m4).
+- Self-contained *seeds* that store configs, renders, and metadata.
+- A groove-aware bass generator that reacts to drum patterns.
+- A terminal UI explorer for browsing and auditioning seeds.
+- CLIs designed to work well both for humans and LLM agents.
 
-## Quickstart
+---
 
-1. **Bootstrap the environment (agents should run this first):**
+## Features
 
-   ```bash
-   python3 -m venv .venv
-   . .venv/bin/activate
-   pip install -r requirements.txt   # installs mido + tooling
-   pytest -q                         # optional: 98 pass / 2 skip expected
-   ```
+- **Drum engines (M0–M4)**
+  - High-resolution PPQ (1920) with micro-timing guardrails.
+  - Configurable kick, hat, snare, clap layers with conditions and modulators.
+  - m4 adds scoring/feedback, Markov modulators, and per-bar metrics.
 
-2. **Render something** once the venv is active:
+- **Seed-aware storage**
+  - Each render can be saved as a *seed* under `seeds/<seed_id>/`.
+  - Seeds are self-contained projects: config, metadata, drums, bass, variants.
+  - Canonical layout documented in `docs/SEED_STORAGE_ROADMAP.md`.
 
-   ```bash
-   # Render from a JSON config
-   python -m techno_engine.run_config --config configs/m4_showcase.json
+- **Groove-aware bass**
+  - Analyzes drum MIDI and builds a 16-step “slot grid” per bar.
+  - Mode-driven basslines (sub anchor, pocket groove, rolling, lead-ish, etc.).
+  - Reacts to kick/snare/hat placement, swing, and tags (e.g. `warehouse`, `minimal`).
+  - Design in `docs/BASS_GROOVE_ROADMAP.md`.
 
-   # Direct CLI for metronome (M0 baseline)
-   python -m techno_engine.cli --config configs/m0_metronome.json
+- **TUI Seed Explorer**
+  - Curses-based terminal UI to browse seeds and assets.
+  - List + detail views, drum pattern preview, MIDI summaries.
+  - Shows clickable absolute `seed_dir` paths in most terminals.
 
-   # Offline agent (no OPENAI_API_KEY)
-   PYTHONPATH=src python -m techno_engine.terminal.app \
-     <<<"make a ben klock style groove at 125 bpm with more ghost kicks"
-   # The agent saves both MIDI and config under out/ and configs/ respectively.
-   ```
-```bash
-curl -fsSL https://raw.githubusercontent.com/mltechno/techno_rhythm_engine/main/scripts/bootstrap.sh | bash
-```
+- **CLIs & agent tooling**
+  - `run_config`: render drums from JSON configs.
+  - `paired_render_cli`: render drums + groove-aware bass in one pass.
+  - `seed_cli`: list/show/render/clone/import/bass-from-seed/delete.
+  - `seed_explorer`: terminal UI.
+  - Agent-facing docs in `docs/AGENT_API.md`, `docs/AGENT_CHEATSHEETS/`.
 
-To render a different config in one shot, override `DEMO_CONFIG`:
+---
 
-```bash
-DEMO_CONFIG=configs/m2_parametric.json curl -fsSL https://raw.githubusercontent.com/mltechno/techno_rhythm_engine/main/scripts/bootstrap.sh | bash
-```
+## Quickstart (5-Minute Demo)
 
-The engine writes `.mid` files to the configured `out` path and, for M4 configs, can optionally emit a CSV log with per-bar metrics (`E`, `S`, hat density, entropy).
-
-## Repository Layout
-
-| Path                         | Purpose |
-|-----------------------------|---------|
-| `src/techno_engine/`        | Core engine modules |
-| `tests/`                    | 32 unit tests (conditions, Markov sync, kick variation, config loading, modulators, logging) |
-| `configs/`                  | Ready-to-run JSON configs (M0–M4, Markov/kick/condition showcases) |
-| `out/`                      | Generated MIDI examples (not tracked) |
-| `roadmap`, `ROADMAP_CHECKLIST.md` | Roadmap artifact and progress log |
-| `docs/ARCHITECTURE.md`      | System architecture and technical design |
-| `docs/techno.1`             | Man page for the terminal REPL |
-
-### Offline styles
-
-The offline agent recognises a few heuristically tuned presets:
-
-| Style key | Description |
-|-----------|-------------|
-| `ben_klock` | 128 BPM, rotating kick, dense hats with OU swing drift. |
-| `ghost_kick` | 130 BPM, aggressive ghost kicks and displacement bias. |
-
-Prompts like “make a Ben Klock style groove at 125 bpm with more ghost kicks” or “tons of ghost pattern on the kick” will pick the closest preset and apply overrides (BPM/bars/ghost weighting/variation).
-
-## Features Implemented
-
-1. **Skeleton & Backbone (M0–M1)**
-   - Deterministic 4/4 kick, straight 16th hats, backbeat snare/clap.
-   - MIDI writer with PPQ 1920 and microtiming conversions.
-
-2. **Parametric Engine (M2)**
-   - Euclidean mask + slow rotation, swing + beat-bin micro, ratchets, choke groups, open-hat offbeats.
-   - Dispersion metrics and unit tests for swing delay, micro-bin sampling, and choke behaviour.
-
-3. **Conditions, Density & Kick Variation (M3)**
-   - Condition stack: PROB, PRE/NOT_PRE, FILL, EVERY_N.
-   - Density clamp with void bias and hat thinning near kicks.
-   - Kick ghosts, displacement into the 2, slow rotation, optional guard allowing kick variation.
-
-4. **Scoring, Feedback, Markov Modulators (M4)**
-   - Sync-biased Markov probabilities, long-horizon modulators (random walk, OU, sine).
-   - Per-bar entropy and density corrections; guard/rescue path with logging.
-   - CSV logging of per-bar E/S hat density/entropy.
-
-5. **Config & CLI Integration**
-   - Full JSON loader for layer configs, conditions, guard/target settings, modulators, logging path.
-   - `run_config` CLI renders M1/M2/M4 sessions with optional logging and metadata.
-
-## Running Examples
-
-We’ve rendered several demo packs; rerun them to audition styles:
+### 1. Setup
 
 ```bash
-# Markov variety
-ls out/markov_variety
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
 
-# Kick variations
-ls out/kick_variation_showcase
-
-# Condition-driven grooves
-ls out/condition_showcase
-
-# Param modulator showcase
-ls out/modulator_showcase
+# Optional: run tests
+PYTHONPATH=src pytest -q
 ```
 
-Each `.mid` corresponds to a config or script change in the repo, making it easier to reproduce the sound.
+### 2. Render a demo seed (drums + bass)
 
-## LLM Prompt Demo Library
-
-- `docs/LLM_PROMPT_DEMOS.md` enumerates turnkey prompts that agents (or humans) can execute without guessing parameter sets. It lives next to the other cheat sheets so the assistant reads it during boot.
-- The latest entry, `energy_gradient`, calls `scripts/make_energy_gradient_pack.py` to write eight 135 BPM grooves that rise to a peak (`energy05_peak_strike`) and fall back down—perfect for demoing tension arcs or regression testing hat density.
-- Add your own deterministic demos by extending that doc and referencing them here so they stay discoverable.
-
-## Configuration Guide
-
-### EngineConfig (JSON snippet)
-
-```json
-{
-  "mode": "m4",
-  "bpm": 132,
-  "ppq": 1920,
-  "bars": 64,
-  "seed": 42,
-  "out": "out/m4_render.mid",
-  "log_path": "out/m4_render.csv",
-  "guard": {"min_E": 0.7, "max_rot_rate": 0.12, "kick_immutable": false},
-  "targets": {"S_low": 0.35, "S_high": 0.55, "H_low": 0.35, "H_high": 0.6,
-               "hat_density_target": 0.7, "hat_density_tol": 0.05},
-  "layers": {
-    "kick": {"rotation_rate_per_bar": 0.05, "ghost_pre1_prob": 0.25},
-    "hat_c": {
-      "steps": 16,
-      "fills": 12,
-      "swing_percent": 0.55,
-      "conditions": [{"kind": "EVERY_N", "n": 4, "offset": 2}]
-    }
-  },
-  "modulators": [
-    {
-      "name": "hat_swing",
-      "param_path": "hat_c.swing_percent",
-      "mod": {"mode": "ou", "min_val": 0.52, "max_val": 0.58,
-               "step_per_bar": 0.008, "tau": 24, "max_delta_per_bar": 0.01}
-    }
-  ]
-}
-```
-
-Parameters:
-
-- `layers.<name>.conditions`: Array of condition objects with `kind` [`PROB`, `PRE`, `NOT_PRE`, `FILL`, `EVERY_N`], optional `p`, `n`, `offset`, `negate`.
-- `modulators`: `param_path` uses dot notation into `thin_bias`, `hat_c`, `hat_o`, `snare`, `clap`, or `accent`.
-- `guard`: `kick_immutable=false` permits kick variation; otherwise the kick stays 4/4.
-- `targets`: optional bands for S, H, and hat density.
-- `log_path`: optional CSV output with per-bar metrics.
-
-### Supported Param Paths
-
-| Param Path              | Description |
-|------------------------|-------------|
-| `thin_bias`            | Hat thinning bias (affects hats near kicks) |
-| `hat_c.swing_percent`  | Closed-hat swing percent |
-| `hat_o.ratchet_prob`   | Open-hat ratchet probability |
-| `hat_o.s,...`          | Any LayerConfig float (e.g. `hat_o.swing_percent`) |
-| `accent.prob`          | Global accent probability |
-
-## Bassline CLI & Showcase
-
-- Render drums + bass with extra musical controls:
+Render an m4 warehouse groove and save it as a seed with paired drums + bass:
 
 ```bash
-PYTHONPATH=src python -m techno_engine.combo_cli \
-  --drum configs/m4_syncopated_layers.json \
-  --drum_out out/sync_example_drums.mid \
-  --bass_out out/sync_example_bass.mid \
-  --key A --mode minor --motif root_b7 --phrase rise --density 0.42
+PYTHONPATH=src .venv/bin/python -m techno_engine.paired_render_cli \
+  --config configs/m4_warehouse_sync.json \
+  --prompt-text "warehouse m4 groove" \
+  --tags "m4,warehouse,showcase" \
+  --summary "Demo warehouse groove (drums + bass)"
 ```
 
-- Generate a full audition pack (separate drums/bass, manifest CSV/JSON/HTML):
+This will:
+
+- Render m4 drums and a groove-aware bassline.
+- Save a new seed under `seeds/<seed_id>/`.
+- Register both drum and bass MIDI files as assets in `metadata.json`.
+
+### 3. Explore seeds in the TUI
 
 ```bash
-PYTHONPATH=src python -m techno_engine.showcase --pack default --outdir out/showcase_latest \
-  --key A --mode minor --scenario syncopated_layers --scenario alien_bounce
-open out/showcase_latest/index.html
+PYTHONPATH=src .venv/bin/python -m techno_engine.seed_explorer
 ```
 
-Each run emits:
-- `manifest.csv` + `manifest.json` with E/S medians, key/mode, scenario descriptions, file paths.
-- `index.html` (styled table with links), plus `drums_*.mid` and `bass_*.mid`.
+Keys (default explorer):
 
-### Orchestrator / Plan example
+- List view: `j/k` move, `Enter` details, `r` refresh, `q` quit.
+- Detail view: `j/k` change seed, `h/l` change asset, `q`/`Esc` back.
+- Delete: `Shift+D` then `y`/`Y` to confirm (removes `seeds/<seed_id>/`).
+
+On the detail page you’ll see:
+
+- `seed_dir`, `config`, `metadata` paths.
+- Assets (drums, bass, variants) with roles and descriptions.
+- MIDI summaries and a 16-step drum pattern preview.
+- Prompt, summary, and a link to the Codex workflow docs.
+
+---
+
+## Core Concepts
+
+### Seeds & Layout
+
+Every seed is a small project stored under `seeds/<seed_id>/`:
 
 ```text
-User: \"make bass for configs/m4_95bpm.json in A minor with density 0.4\"
-Plan:
-- call make_bass_for_config(config_path=\"configs/m4_95bpm.json\", key=\"A\", mode=\"minor\", density=0.4, save_prefix=\"m4_95bpm_minor\")
-- return drums/bass paths plus E/S metrics
+seeds/<seed_id>/
+  config.json          # canonical drum config snapshot
+  metadata.json        # SeedMetadata JSON
+  drums/
+    main.mid           # main drum pattern for this seed
+    variants/          # optional drum variants
+      *.mid
+  bass/
+    main.mid           # primary bassline (if present)
+    variants/
+      *.mid            # additional basslines / leads
+  leads/               # optional
+  analysis/            # optional logs/metrics
 ```
 
-## Unit Tests
+Key rules:
 
-We ship 32 tests covering the entire pipeline. Key suites:
+- `metadata.json.render_path` is `"drums/main.mid"`.
+- `SeedAsset.path` values are **relative** to the seed directory
+  (e.g. `drums/main.mid`, `bass/variants/bass_leadish.mid`).
+- `rebuild_index()` normalises legacy seeds into this layout and writes
+  `seeds/index.json`.
 
-- `tests/test_m0_metronome.py`: timebase sanity.
-- `tests/test_m2_parametric.py`: swing/beat-bin/choke behaviour.
-- `tests/test_m4_control.py`: sync targeting, continuity, rescue behaviour.
-- `tests/test_conditions_stack.py`: PROB/PRE/FILL/EVERY_N gating.
-- `tests/test_kick_variation.py`: ghosts, displacement, rotation.
-- `tests/test_param_modulators.py`: param-path modulators and bounds.
-- `tests/test_config_modulators.py`: JSON parsing and integration.
-- `tests/test_logging_metrics.py`: CSV logging.
+See `docs/SEED_STORAGE_ROADMAP.md` and `docs/CODEX_SEED_WORKFLOW.md` for
+full details.
 
-Run `pytest -q` to ensure all pass; the pipeline is currently green.
+### Groove-Aware Bass (Overview)
 
-## Roadmap Status Highlights
+The groove-aware bass engine:
 
-- Markov sync bias, condition stacks, kick variation, entropy/density feedback, and logging integrated.
-- Config loader/CLI now mirror roadmap Section F/J.
-- Example packs generated and checked into `out/` for quick auditioning.
-- Remaining tasks: documentation polish (this README), additional configs (as needed), and optional YAML support if required.
+- Parses drum MIDI into a 16-step slot grid (per bar).
+- Labels each step: `kick_here`, `near_kick_pre/post`, `snare_zone`,
+  `bar_start`, `bar_end`, etc.
+- Chooses a bass **mode** based on tags and drum energy:
+  - Sub Anchor, Root/5th Driver, Pocket Groove, Rolling Ostinato,
+    Offbeat Stabs, Lead-ish Bass.
+- Builds 1–2 bar motifs using a constrained pitch pool (root, 5th,
+  sub octave, occasional b7/9 for lead-ish modes).
+- Applies small variations at phrase boundaries while keeping motifs
+  recognisable.
+- Respects swing: bass quantises to the hats’ swung grid but never swings
+  more than the hats.
 
-## License & Credits
+Design and rules: `docs/BASS_GROOVE_ROADMAP.md`.
 
-- Engine inspired by the Berlin-Style Techno MIDI Engine roadmap (see `roadmap`).
-- Example outputs are for demonstration—the engine itself is MIDI-only and can drive any sound source.
+### Explorer (Seed TUI)
 
-Enjoy exploring the groove!
-## Man Page
+- Uses Python’s `curses` to provide a terminal-first UI.
+- In list mode:
+  - Shows a table of seeds (id, mode, bpm, bars, tags).
+  - Right pane shows seed dir/config/meta + summary.
+- In detail mode:
+  - Shows assets list, file paths, file stats.
+  - Shows MIDI summaries and 16-step drum pattern previews.
+  - Displays prompt/summary and Codex notes.
+- `seed_dir:` is printed as an absolute path so terminals/editors can
+  expose it as a clickable link to open the folder.
 
-View the man page locally without installing:
+More in `docs/SHOWCASE.md` and `docs/TERMINAL_AI_ROADMAP.md`.
 
-```bash
-man -l docs/techno.1
-# or
-groff -man -Tutf8 docs/techno.1 | less
-```
+---
 
-## OpenAI model selection
+## How It Works (Algorithms & Tech)
 
-Set `OPENAI_MODEL` to choose a smarter model for tool‑calling (default is `gpt-4o-mini`). Examples:
+### Drum Engine (m0–m4)
 
-```bash
-export OPENAI_API_KEY='sk-...'
-export OPENAI_MODEL='gpt-4o'   # higher quality, higher cost
-PYTHONPATH=src python -m techno_engine.terminal.app
-```
+- Config-driven patterns defined in `configs/*.json`.
+- M0–M1: metronome and basic 4/4 kicks with hats and backbeats.
+- M2: parametric engine (Euclidean masks, swing, ratchets, choke groups).
+- M3: conditions, density clamps, kick variation (ghosts, displacement).
+- M4: scoring/feedback with Markov modulators and per-bar metrics
+  (entropy, density, hat activity).
+- Implementation entry points:
+  - `src/techno_engine/run_config.py`
+  - configs like `configs/m4_warehouse_sync.json`, `configs/m4_urgent.json`.
 
-You can also place `OPENAI_MODEL=gpt-4o` in your `.env` next to `OPENAI_API_KEY`.
+### Groove-Aware Bass Engine
+
+- Drum analysis (in `drum_analysis`):
+  - Reads drum MIDI, computes 16-step slots per bar, labels kick/snare/hat zones.
+- Bass generation (in `groove_bass`):
+  - Selects a mode based on tags and drum energy.
+  - Generates motifs on the slot grid using a mode-specific pitch pool.
+  - Enforces per-mode rules around density, register, and kick proximity.
+  - Applies controlled variation across phrases and validates results.
+- Writes MIDI via `midi_writer.write_midi`.
+
+See `docs/BASS_GROOVE_ROADMAP.md` for the full design and rule set.
+
+### Seed System & Explorer
+
+- Seeds are managed via `src/techno_engine/seeds.py`:
+  - `SeedMetadata` / `SeedAsset` dataclasses.
+  - `save_seed`, `load_seed`, `rebuild_index`, `delete_seed_dir`, helpers.
+- `run_config` and `paired_render_cli` call `save_seed` to snapshot
+  configs and renders into `seeds/<seed_id>/`.
+- `seed_cli` provides non-interactive management:
+  - `list`, `show`, `render`, `clone`, `import-mid`, `bass-from-seed`, `delete`.
+- `seed_explorer` is a curses UI for interactive browsing.
+
+Architecture details: `docs/ARCHITECTURE.md`, `docs/SEED_STORAGE_ROADMAP.md`.
+
+---
+
+## CLI Cheatsheet
+
+All commands assume you have `source .venv/bin/activate` and `PYTHONPATH=src`.
+
+- Drums only:
+  - `python -m techno_engine.run_config --config configs/m4_showcase.json`
+- Drums + bass (paired render):
+  - `python -m techno_engine.paired_render_cli --config configs/m4_warehouse_sync.json ...`
+- Seed management:
+  - List seeds: `python -m techno_engine.seed_cli list`
+  - Show metadata: `python -m techno_engine.seed_cli show <seed_id> --json`
+  - Render from seed: `python -m techno_engine.seed_cli render <seed_id> [--out path.mid]`
+  - Clone seed with overrides: `python -m techno_engine.seed_cli clone <seed_id> --bars 16 ...`
+  - Import an external MIDI: `python -m techno_engine.seed_cli import-mid path/to/file.mid`
+  - Groove-aware bass from seed: `python -m techno_engine.seed_cli bass-from-seed <seed_id> [--bass-mode ...]`
+  - Delete a seed: `python -m techno_engine.seed_cli delete <seed_id> --yes`
+- TUI explorer:
+  - `python -m techno_engine.seed_explorer`
+
+See also:
+
+- `docs/AGENT_API.md` for agent-facing tool contracts.
+- `docs/AGENT_CHEATSHEETS/*` for parameter effects and planning templates.
+- `docs/TECHNO-BASS.1`, `docs/TECHNO-SHOWCASE.1`, etc., for man pages.
+
+---
+
+## For Agents & Contributors
+
+If you&apos;re extending the engine or wiring it into other tools:
+
+- Read:
+  - `docs/SEED_STORAGE_ROADMAP.md` – canonical seed layout & migration.
+  - `docs/BASS_GROOVE_ROADMAP.md` – groove-aware bass design and rules.
+  - `docs/CODEX_SEED_WORKFLOW.md` – end-to-end seed workflow and TUI usage.
+  - `docs/DOCUMENTATION_ROADMAP.md` – overall docs strategy.
+  - `docs/SEED_DELETE_ROADMAP.md` – seed delete semantics.
+- In code:
+  - Keep seed asset paths relative to the seed directory.
+  - Use `save_seed` / `rebuild_index` instead of ad-hoc file management.
+  - Respect bass mode rules when generating or modifying patterns.
+- Tests:
+  - Add or extend pytest tests under `tests/` whenever you add behaviour.
+  - Use `pytest -q` as your basic verification gate.
+
+---
+
+## Roadmap & Status
+
+- High-level roadmap artifacts:
+  - `roadmap`, `ROADMAP_CHECKLIST.md` – original engine roadmap.
+  - `docs/SEED_BEATS_PLAN.md` – seed-beat feature plans.
+  - `docs/README_FRONT_PAGE_ROADMAP.md` – this README’s evolution plan.
+- Recent highlights:
+  - Canonical seed storage layout with migration.
+  - Groove-aware bass engine and CLIs.
+  - Seed explorer TUI with detail view and delete support.
+  - Seed delete helper + CLI (`seed_cli delete`).
+- To experiment further:
+  - Explore configs in `configs/` and demos in `docs/SHOWCASE.md`.
+  - Use the TUI + seeds to manage your own groove library.
+
