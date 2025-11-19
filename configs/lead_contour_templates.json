@@ -1,0 +1,12 @@
+{
+  "Minimal Stab Lead": {
+    "CALL": [
+      {
+        "id": "msl_contour_1",
+        "intervals": [0, 2, -1],
+        "emphasis_indices": [0],
+        "shape": "arch"
+      }
+    ]
+  }
+}

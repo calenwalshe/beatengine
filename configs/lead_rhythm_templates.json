@@ -1,0 +1,13 @@
+{
+  "Minimal Stab Lead": {
+    "CALL": [
+      {
+        "id": "msl_call_1",
+        "events": [
+          {"step": 2, "length": 1, "anchor_type": "offbeat", "accent": true},
+          {"step": 10, "length": 1, "anchor_type": "snare_zone", "accent": false}
+        ]
+      }
+    ]
+  }
+}

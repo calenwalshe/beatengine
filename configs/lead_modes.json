@@ -1,0 +1,17 @@
+{
+  "Minimal Stab Lead": {
+    "target_notes_per_bar": [2, 4],
+    "max_consecutive_notes": 2,
+    "register_low": 64,
+    "register_high": 76,
+    "rhythmic_personality": "stabs",
+    "preferred_slot_weights": {
+      "is_offbeat_8th": 2.0,
+      "snare_zone": 1.5,
+      "fill_zone": -2.0
+    },
+    "phrase_length_bars": 4,
+    "contour_profiles": ["arch", "stepwise"],
+    "call_response_style": "mild"
+  }
+}

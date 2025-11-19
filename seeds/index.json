@@ -1,1 +1,154 @@
-[]
+[
+  {
+    "assets": [
+      {
+        "description": "primary render",
+        "drum_pattern_preview": "kick : x.x.x.xxx.xxx.xx\nsnare: ...x.....x....x.\nhat  : .xxxxxx.xxx.x...",
+        "kind": "midi",
+        "path": "drums/main.mid",
+        "role": "main"
+      },
+      {
+        "description": "auto lead demo",
+        "drum_pattern_preview": null,
+        "kind": "midi",
+        "path": "leads/variants/lead_Minimal Stab Lead.mid",
+        "role": "lead"
+      }
+    ],
+    "bars": 32,
+    "bpm": 129.0,
+    "config_path": "config.json",
+    "created_at": "2025-11-18T22:48:54.553582+00:00",
+    "engine_mode": "m4",
+    "file_version": 1,
+    "log_path": "out/warehouse_sync/drums_metrics.csv",
+    "parent_seed_id": null,
+    "ppq": 1920,
+    "prompt": "lead demo from m4_warehouse_sync.json",
+    "prompt_context": null,
+    "render_path": "drums/main.mid",
+    "rng_seed": 90210,
+    "seed_id": "20251118T224854552739Z_m4_90210",
+    "summary": "Lead demo seed",
+    "tags": [
+      "m4",
+      "warehouse",
+      "lead_demo"
+    ]
+  },
+  {
+    "assets": [
+      {
+        "description": "primary render",
+        "drum_pattern_preview": "kick : x...x...x...x...\nsnare: ...x.......x....\nhat  : xxxxx.x..x.xxxxx",
+        "kind": "midi",
+        "path": "drums/main.mid",
+        "role": "main"
+      },
+      {
+        "description": "auto lead demo",
+        "drum_pattern_preview": null,
+        "kind": "midi",
+        "path": "leads/variants/lead_Minimal Stab Lead.mid",
+        "role": "lead"
+      }
+    ],
+    "bars": 64,
+    "bpm": 132.0,
+    "config_path": "config.json",
+    "created_at": "2025-11-18T22:48:54.572881+00:00",
+    "engine_mode": "m4",
+    "file_version": 1,
+    "log_path": "out/urgent_phrase_64.csv",
+    "parent_seed_id": null,
+    "ppq": 1920,
+    "prompt": "lead demo from m4_urgent.json",
+    "prompt_context": null,
+    "render_path": "drums/main.mid",
+    "rng_seed": 4242,
+    "seed_id": "20251118T224854572290Z_m4_4242",
+    "summary": "Lead demo seed",
+    "tags": [
+      "m4",
+      "urgent",
+      "lead_demo"
+    ]
+  },
+  {
+    "assets": [
+      {
+        "description": "primary render",
+        "drum_pattern_preview": "kick : .x.x.x.x.x.x.x.x\nsnare: ...x.......x....\nhat  : xxx.x.x.xxx.x...",
+        "kind": "midi",
+        "path": "drums/main.mid",
+        "role": "main"
+      },
+      {
+        "description": "auto lead demo",
+        "drum_pattern_preview": null,
+        "kind": "midi",
+        "path": "leads/variants/lead_Minimal Stab Lead.mid",
+        "role": "lead"
+      }
+    ],
+    "bars": 64,
+    "bpm": 132.0,
+    "config_path": "config.json",
+    "created_at": "2025-11-18T22:48:54.595629+00:00",
+    "engine_mode": "m4",
+    "file_version": 1,
+    "log_path": "out/examples/m4_showcase.csv",
+    "parent_seed_id": null,
+    "ppq": 1920,
+    "prompt": "lead demo from m4_showcase.json",
+    "prompt_context": null,
+    "render_path": "drums/main.mid",
+    "rng_seed": 1234,
+    "seed_id": "20251118T224854595165Z_m4_1234",
+    "summary": "Lead demo seed",
+    "tags": [
+      "m4",
+      "showcase",
+      "lead_demo"
+    ]
+  },
+  {
+    "assets": [
+      {
+        "description": "primary render",
+        "drum_pattern_preview": "kick : .x...x..x..x..x.\nsnare: ....x..x..x....x\nhat  : xxx.xxx.xx.xx..x",
+        "kind": "midi",
+        "path": "drums/main.mid",
+        "role": "main"
+      },
+      {
+        "description": "auto lead demo",
+        "drum_pattern_preview": null,
+        "kind": "midi",
+        "path": "leads/variants/lead_Minimal Stab Lead.mid",
+        "role": "lead"
+      }
+    ],
+    "bars": 32,
+    "bpm": 126.0,
+    "config_path": "config.json",
+    "created_at": "2025-11-18T22:48:54.611015+00:00",
+    "engine_mode": "m4",
+    "file_version": 1,
+    "log_path": null,
+    "parent_seed_id": null,
+    "ppq": 1920,
+    "prompt": "lead demo from m4_alien_bounce.json",
+    "prompt_context": null,
+    "render_path": "drums/main.mid",
+    "rng_seed": 6061,
+    "seed_id": "20251118T224854610397Z_m4_6061",
+    "summary": "Lead demo seed",
+    "tags": [
+      "m4",
+      "alien",
+      "lead_demo"
+    ]
+  }
+]

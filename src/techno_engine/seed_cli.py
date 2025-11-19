@@ -9,7 +9,8 @@ from .run_config import main as run_config_main
 from .seeds import SeedMetadata, load_seed, rebuild_index, import_mid_as_seed, delete_seed_dir
 from .drum_analysis import extract_drum_anchors
 from .groove_bass import generate_groove_bass
-from .midi_writer import write_midi
+from .midi_writer import write_midi, MidiEvent
+from .leads.lead_engine import generate_lead, NoteEvent
 
 
 def _get_seeds_root(root_arg: str | None) -> Path:
@@ -271,6 +272,95 @@ def _cmd_bass_from_seed(args: argparse.Namespace) -> int:
     print(f"Appended bass asset to seed {seed_id}: {rel_bass_path}")
     return 0
 
+
+def _cmd_lead_from_seed(args: argparse.Namespace) -> int:
+    """Generate a lead line for an existing seed and append as a lead asset."""
+
+    seeds_root = _get_seeds_root(args.root)
+    seed_id = args.seed_id
+
+    # Load metadata/config to ensure the seed exists and get tempo info.
+    _cfg, meta = load_seed(seed_id, seeds_root=seeds_root)
+    seed_dir = seeds_root / seed_id
+
+    # Resolve drum MIDI path: prefer meta.render_path; fall back to main asset.
+    drum_path = None
+    if meta.render_path:
+        p = Path(meta.render_path)
+        drum_path = p if p.is_absolute() else seed_dir / p
+
+    if drum_path is None or not drum_path.is_file():
+        for asset in meta.assets or []:
+            if getattr(asset, 'role', '') == 'main' and getattr(asset, 'kind', '') == 'midi':
+                p = Path(asset.path)
+                drum_path = p if p.is_absolute() else seed_dir / p
+                if drum_path.is_file():
+                    break
+        else:
+            print(f"Could not resolve drum MIDI for seed {seed_id}")
+            return 1
+
+    anchors = extract_drum_anchors(drum_path, ppq=int(meta.ppq))
+
+    # Allow tag override for lead mode selection.
+    if args.tags:
+        meta.tags = [t.strip() for t in args.tags.split(',') if t.strip()]
+
+    lead_events = generate_lead(anchors, meta, bass_notes=None, lead_mode_override=args.mode)
+
+    if not lead_events:
+        print(f"No lead events generated for seed {seed_id}")
+        return 1
+
+    # Write lead MIDI into canonical leads folder inside the seed directory.
+    leads_dir = seed_dir / 'leads'
+    leads_dir.mkdir(parents=True, exist_ok=True)
+    if args.out:
+        dest_name = args.out
+    elif args.mode:
+        dest_name = f"variants/lead_{args.mode}.mid"
+    else:
+        dest_name = "variants/lead_auto.mid"
+
+    dest_path = leads_dir / dest_name
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Convert NoteEvent objects into MidiEvent for writing.
+    midi_events = [
+        MidiEvent(
+            note=e.pitch,
+            vel=e.velocity,
+            start_abs_tick=e.start_tick,
+            dur_tick=e.duration,
+            channel=0,
+        )
+        for e in lead_events
+    ]
+
+    write_midi(midi_events, ppq=int(meta.ppq), bpm=float(meta.bpm), out_path=str(dest_path))
+
+    # Append a lead asset entry to metadata.json and rebuild index.
+    meta_path = seed_dir / 'metadata.json'
+    data = json.loads(meta_path.read_text())
+    assets = data.get('assets') or []
+    rel_lead_path = str(dest_path.relative_to(seed_dir))
+    assets.append(
+        {
+            'role': 'lead',
+            'kind': 'midi',
+            'path': rel_lead_path,
+            'description': args.description or 'lead_from_seed',
+        }
+    )
+    data['assets'] = assets
+    meta_path.write_text(json.dumps(data, indent=2, sort_keys=True))
+
+    rebuild_index(seeds_root=seeds_root)
+    print(f"Appended lead asset to seed {seed_id}: {rel_lead_path}")
+    return 0
+
+
+
 def _cmd_delete(args: argparse.Namespace) -> int:
     """Delete a seed directory and rebuild the index.
 
@@ -383,6 +473,15 @@ def main(argv: List[str] | None = None) -> int:
     p_bass.add_argument("--tags", default=None, help="Override tags used for bass mode selection")
     p_bass.add_argument("--description", default=None, help="Description to store on the bass asset")
     p_bass.set_defaults(func=_cmd_bass_from_seed)
+
+    p_lead = subparsers.add_parser("lead-from-seed", help="Generate a lead line for an existing seed")
+    p_lead.add_argument("seed_id", help="Seed identifier")
+    p_lead.add_argument("--root", default=None, help="Seeds root directory (default: ./seeds)")
+    p_lead.add_argument("--out", default=None, help="Output lead MIDI filename (relative to seed dir)")
+    p_lead.add_argument("--mode", default=None, help="Optional lead mode override")
+    p_lead.add_argument("--tags", default=None, help="Override tags used for lead mode selection")
+    p_lead.add_argument("--description", default=None, help="Description to store on the lead asset")
+    p_lead.set_defaults(func=_cmd_lead_from_seed)
 
     p_import = subparsers.add_parser("import-mid", help="Import an existing MIDI file as a seed")
     p_import.add_argument("mid_path", help="Path to the MIDI file to import")
