@@ -1,0 +1,257 @@
+[
+  {
+    "id": "msl_call_sync_a",
+    "modes": ["Minimal Stab Lead"],
+    "role": "CALL",
+    "bars": 2,
+    "energy": "low",
+    "tags": ["syncopated", "stabs"],
+    "events": [
+      {"step_offset": 0, "length_steps": 2, "accent": 0.9, "anchor_type": "kick"},
+      {"step_offset": 6, "length_steps": 1, "accent": 0.6, "anchor_type": "hat"},
+      {"step_offset": 8, "length_steps": 2, "accent": 0.85, "anchor_type": "snare_zone"},
+      {"step_offset": 14, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 22, "length_steps": 2, "accent": 0.95, "anchor_type": "snare_zone"}
+    ],
+    "max_step_jitter": 2,
+    "min_inter_note_gap_steps": 1
+  },
+  {
+    "id": "msl_call_stabs_b",
+    "modes": ["Minimal Stab Lead"],
+    "role": "CALL",
+    "bars": 1,
+    "energy": "medium",
+    "tags": ["straight", "stabs"],
+    "events": [
+      {"step_offset": 2, "length_steps": 1, "accent": 0.75, "anchor_type": "hat"},
+      {"step_offset": 6, "length_steps": 1, "accent": 0.8, "anchor_type": "hat"},
+      {"step_offset": 10, "length_steps": 2, "accent": 0.9, "anchor_type": "snare_zone"},
+      {"step_offset": 14, "length_steps": 1, "accent": 0.85, "anchor_type": "snare_zone"}
+    ],
+    "max_step_jitter": 1,
+    "min_inter_note_gap_steps": 1
+  },
+  {
+    "id": "msl_resp_answer_a",
+    "modes": ["Minimal Stab Lead"],
+    "role": "RESP",
+    "bars": 2,
+    "energy": "low",
+    "tags": ["answer", "sustain"],
+    "events": [
+      {"step_offset": 0, "length_steps": 3, "accent": 0.85, "anchor_type": "kick"},
+      {"step_offset": 10, "length_steps": 2, "accent": 0.7, "anchor_type": "snare_zone"},
+      {"step_offset": 16, "length_steps": 3, "accent": 0.9, "anchor_type": "snare_zone"},
+      {"step_offset": 28, "length_steps": 2, "accent": 0.75, "anchor_type": "hat"}
+    ],
+    "max_step_jitter": 1,
+    "min_inter_note_gap_steps": 2
+  },
+  {
+    "id": "msl_resp_answer_b",
+    "modes": ["Minimal Stab Lead"],
+    "role": "RESP",
+    "bars": 1,
+    "energy": "medium",
+    "tags": ["answer", "snare_push"],
+    "events": [
+      {"step_offset": 4, "length_steps": 2, "accent": 0.8, "anchor_type": "snare_zone"},
+      {"step_offset": 10, "length_steps": 2, "accent": 0.85, "anchor_type": "snare_zone"},
+      {"step_offset": 12, "length_steps": 3, "accent": 0.95, "anchor_type": "snare_zone"}
+    ],
+    "max_step_jitter": 1,
+    "min_inter_note_gap_steps": 2
+  },
+  {
+    "id": "roll_call_drive_a",
+    "modes": ["Rolling Arp Lead", "Hypnotic Arp Lead"],
+    "role": "CALL",
+    "bars": 2,
+    "energy": "high",
+    "tags": ["rolling", "upbeats"],
+    "events": [
+      {"step_offset": 0, "length_steps": 2, "accent": 0.9, "anchor_type": "kick"},
+      {"step_offset": 3, "length_steps": 1, "accent": 0.6, "anchor_type": "hat"},
+      {"step_offset": 6, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 9, "length_steps": 1, "accent": 0.6, "anchor_type": "hat"},
+      {"step_offset": 12, "length_steps": 2, "accent": 1.0, "anchor_type": "snare_zone"},
+      {"step_offset": 18, "length_steps": 1, "accent": 0.65, "anchor_type": "hat"},
+      {"step_offset": 22, "length_steps": 2, "accent": 0.9, "anchor_type": "snare_zone"},
+      {"step_offset": 28, "length_steps": 2, "accent": 0.95, "anchor_type": "snare_zone"}
+    ],
+    "max_step_jitter": 2,
+    "min_inter_note_gap_steps": 1
+  },
+  {
+    "id": "roll_call_drive_b",
+    "modes": ["Rolling Arp Lead"],
+    "role": "CALL",
+    "bars": 1,
+    "energy": "high",
+    "tags": ["16ths", "riser"],
+    "events": [
+      {"step_offset": 0, "length_steps": 1, "accent": 0.8, "anchor_type": "kick"},
+      {"step_offset": 2, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 4, "length_steps": 1, "accent": 0.75, "anchor_type": "hat"},
+      {"step_offset": 6, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 8, "length_steps": 2, "accent": 0.95, "anchor_type": "snare_zone"},
+      {"step_offset": 12, "length_steps": 1, "accent": 0.8, "anchor_type": "hat"},
+      {"step_offset": 14, "length_steps": 1, "accent": 0.85, "anchor_type": "hat"}
+    ],
+    "max_step_jitter": 2,
+    "min_inter_note_gap_steps": 1
+  },
+  {
+    "id": "roll_resp_tail_a",
+    "modes": ["Rolling Arp Lead", "Hypnotic Arp Lead"],
+    "role": "RESP",
+    "bars": 2,
+    "energy": "medium",
+    "tags": ["drop", "resolve"],
+    "events": [
+      {"step_offset": 4, "length_steps": 3, "accent": 0.85, "anchor_type": "snare_zone"},
+      {"step_offset": 12, "length_steps": 2, "accent": 0.75, "anchor_type": "snare_zone"},
+      {"step_offset": 20, "length_steps": 3, "accent": 0.8, "anchor_type": "snare_zone"},
+      {"step_offset": 28, "length_steps": 4, "accent": 0.95, "anchor_type": "snare_zone"}
+    ],
+    "max_step_jitter": 1,
+    "min_inter_note_gap_steps": 2
+  },
+  {
+    "id": "lyr_call_arch_a",
+    "modes": ["Lyrical Call/Response Lead"],
+    "role": "CALL",
+    "bars": 2,
+    "energy": "medium",
+    "tags": ["lyrical", "arch"],
+    "events": [
+      {"step_offset": 0, "length_steps": 3, "accent": 0.85, "anchor_type": "kick"},
+      {"step_offset": 8, "length_steps": 3, "accent": 0.9, "anchor_type": "snare_zone"},
+      {"step_offset": 16, "length_steps": 2, "accent": 0.8, "anchor_type": "snare_zone"},
+      {"step_offset": 22, "length_steps": 3, "accent": 0.95, "anchor_type": "snare_zone"}
+    ],
+    "max_step_jitter": 1,
+    "min_inter_note_gap_steps": 2
+  },
+  {
+    "id": "lyr_call_short",
+    "modes": ["Lyrical Call/Response Lead"],
+    "role": "CALL",
+    "bars": 1,
+    "energy": "medium",
+    "tags": ["lyrical", "pickup"],
+    "events": [
+      {"step_offset": 0, "length_steps": 3, "accent": 0.8, "anchor_type": "kick"},
+      {"step_offset": 8, "length_steps": 2, "accent": 0.85, "anchor_type": "snare_zone"},
+      {"step_offset": 12, "length_steps": 2, "accent": 0.75, "anchor_type": "snare_zone"}
+    ],
+    "max_step_jitter": 1,
+    "min_inter_note_gap_steps": 2
+  },
+  {
+    "id": "lyr_resp_echo_a",
+    "modes": ["Lyrical Call/Response Lead"],
+    "role": "RESP",
+    "bars": 2,
+    "energy": "medium",
+    "tags": ["echo", "resolve"],
+    "events": [
+      {"step_offset": 4, "length_steps": 2, "accent": 0.8, "anchor_type": "snare_zone"},
+      {"step_offset": 12, "length_steps": 3, "accent": 0.85, "anchor_type": "snare_zone"},
+      {"step_offset": 18, "length_steps": 2, "accent": 0.75, "anchor_type": "hat"},
+      {"step_offset": 28, "length_steps": 4, "accent": 1.0, "anchor_type": "snare_zone"}
+    ],
+    "max_step_jitter": 1,
+    "min_inter_note_gap_steps": 2
+  },
+  {
+    "id": "lyr_resp_short",
+    "modes": ["Lyrical Call/Response Lead"],
+    "role": "RESP",
+    "bars": 1,
+    "energy": "medium",
+    "tags": ["cadence", "pickup"],
+    "events": [
+      {"step_offset": 4, "length_steps": 2, "accent": 0.8, "anchor_type": "snare_zone"},
+      {"step_offset": 10, "length_steps": 2, "accent": 0.85, "anchor_type": "snare_zone"},
+      {"step_offset": 12, "length_steps": 3, "accent": 0.95, "anchor_type": "snare_zone"}
+    ],
+    "max_step_jitter": 1,
+    "min_inter_note_gap_steps": 2
+  },
+  {
+    "id": "hyp_call_loop_a",
+    "modes": ["Hypnotic Arp Lead"],
+    "role": "CALL",
+    "bars": 4,
+    "energy": "high",
+    "tags": ["loop", "ostinato"],
+    "events": [
+      {"step_offset": 0, "length_steps": 2, "accent": 0.9, "anchor_type": "kick"},
+      {"step_offset": 4, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 8, "length_steps": 2, "accent": 0.85, "anchor_type": "snare_zone"},
+      {"step_offset": 14, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 16, "length_steps": 2, "accent": 0.9, "anchor_type": "kick"},
+      {"step_offset": 20, "length_steps": 1, "accent": 0.65, "anchor_type": "hat"},
+      {"step_offset": 24, "length_steps": 2, "accent": 0.85, "anchor_type": "snare_zone"},
+      {"step_offset": 30, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 32, "length_steps": 2, "accent": 0.9, "anchor_type": "kick"},
+      {"step_offset": 36, "length_steps": 1, "accent": 0.65, "anchor_type": "hat"},
+      {"step_offset": 40, "length_steps": 2, "accent": 0.85, "anchor_type": "snare_zone"},
+      {"step_offset": 46, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 48, "length_steps": 2, "accent": 0.95, "anchor_type": "kick"},
+      {"step_offset": 52, "length_steps": 2, "accent": 0.9, "anchor_type": "snare_zone"},
+      {"step_offset": 58, "length_steps": 2, "accent": 1.0, "anchor_type": "snare_zone"}
+    ],
+    "max_step_jitter": 2,
+    "min_inter_note_gap_steps": 1
+  },
+  {
+    "id": "tech_loop_drive",
+    "modes": ["Techno Loop Lead"],
+    "role": "CALL",
+    "bars": 2,
+    "energy": "high",
+    "tags": ["loop", "16ths"],
+    "events": [
+      {"step_offset": 0, "length_steps": 1, "accent": 0.8, "anchor_type": "kick"},
+      {"step_offset": 2, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 4, "length_steps": 1, "accent": 0.75, "anchor_type": "hat"},
+      {"step_offset": 6, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 8, "length_steps": 1, "accent": 0.8, "anchor_type": "hat"},
+      {"step_offset": 10, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 12, "length_steps": 1, "accent": 0.75, "anchor_type": "snare_zone"},
+      {"step_offset": 14, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 16, "length_steps": 1, "accent": 0.8, "anchor_type": "kick"},
+      {"step_offset": 18, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 20, "length_steps": 1, "accent": 0.75, "anchor_type": "hat"},
+      {"step_offset": 22, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 24, "length_steps": 1, "accent": 0.8, "anchor_type": "hat"},
+      {"step_offset": 26, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 28, "length_steps": 1, "accent": 0.75, "anchor_type": "snare_zone"},
+      {"step_offset": 30, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"}
+    ],
+    "max_step_jitter": 1,
+    "min_inter_note_gap_steps": 1
+  },
+  {
+    "id": "tech_loop_fill",
+    "modes": ["Techno Loop Lead"],
+    "role": "RESP",
+    "bars": 2,
+    "energy": "medium",
+    "tags": ["loop", "fill"],
+    "events": [
+      {"step_offset": 0, "length_steps": 2, "accent": 0.8, "anchor_type": "kick"},
+      {"step_offset": 6, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 8, "length_steps": 2, "accent": 0.75, "anchor_type": "snare_zone"},
+      {"step_offset": 12, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 18, "length_steps": 1, "accent": 0.7, "anchor_type": "hat"},
+      {"step_offset": 22, "length_steps": 2, "accent": 0.8, "anchor_type": "snare_zone"},
+      {"step_offset": 28, "length_steps": 2, "accent": 0.9, "anchor_type": "snare_zone"}
+    ],
+    "max_step_jitter": 1,
+    "min_inter_note_gap_steps": 1
+  }
+]

@@ -93,3 +93,32 @@ def test_lead_rhythm_and_contour_templates_parse(tmp_path):
     assert ct.intervals == [0, 2, -1]
     assert ct.emphasis_indices == [0]
     assert ct.shape == "arch"
+
+
+def test_lead_modes_multiple_modes_parse_from_config():
+    """Ensure lead_modes.json defines the expected modes with sane ranges."""
+
+    import json as _json
+
+    cfg_path = Path('configs/lead_modes.json')
+    raw = _json.loads(cfg_path.read_text())
+    modes = load_lead_modes(raw)
+
+    for name in [
+        'Minimal Stab Lead',
+        'Rolling Arp Lead',
+        'Hypnotic Arp Lead',
+        'Lyrical Call/Response Lead',
+    ]:
+        assert name in modes
+
+    m_min = modes['Minimal Stab Lead']
+    assert m_min.target_notes_per_bar == (2, 4)
+
+    m_roll = modes['Rolling Arp Lead']
+    assert m_roll.target_notes_per_bar[0] >= 4
+    assert m_roll.register_low >= 60
+
+    m_lyr = modes['Lyrical Call/Response Lead']
+    assert m_lyr.phrase_length_bars == 4
+    assert 'arch' in m_lyr.contour_profiles or m_lyr.contour_profiles == []

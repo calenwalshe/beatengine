@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import json
+import os
+import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from ..drum_analysis import DrumAnchors
 from ..seeds import SeedMetadata
@@ -14,6 +18,12 @@ from .lead_templates import (
 )
 from .lead_phrase import build_phrase_roles
 from .lead_validation import LeadNote
+from .lead_v2_loader import (
+    LeadV2Assets,
+    load_lead_v2_assets,
+    select_lead_mode_v2,
+)
+from lead_implementation.lead_v2.generate import generate_lead_v2
 
 
 @dataclass
@@ -32,6 +42,11 @@ class LeadContext:
     modes: Dict[str, LeadMode]
     rhythm_templates: List[RhythmTemplate]
     contour_templates: List[ContourTemplate]
+
+
+CONFIG_DIR = Path(__file__).resolve().parents[3] / "configs"
+_LEAD_V2_CACHE_READY = False
+_LEAD_V2_ASSETS: Optional[LeadV2Assets] = None
 
 
 def build_lead_context(
@@ -63,6 +78,26 @@ def build_lead_context(
     )
 
 
+def _should_use_lead_v2() -> bool:
+    env = os.environ.get("BEATENGINE_LEAD_ENGINE")
+    if env:
+        env = env.strip().lower()
+        if env == "v2":
+            return True
+        if env == "v1":
+            return False
+    return (CONFIG_DIR / "lead_modes_v2.json").exists()
+
+
+def _get_lead_v2_assets() -> Optional[LeadV2Assets]:
+    global _LEAD_V2_CACHE_READY, _LEAD_V2_ASSETS
+    if _LEAD_V2_CACHE_READY:
+        return _LEAD_V2_ASSETS
+    _LEAD_V2_CACHE_READY = True
+    _LEAD_V2_ASSETS = load_lead_v2_assets(CONFIG_DIR)
+    return _LEAD_V2_ASSETS
+
+
 def generate_lead(
     drum_slots: DrumAnchors,
     seed_metadata: SeedMetadata,
@@ -70,44 +105,59 @@ def generate_lead(
     rng: Optional[Any] = None,
     lead_mode_override: Optional[str] = None,
 ) -> List[NoteEvent]:
-    """Produce deterministic lead-line MIDI note events.
+    """Produce deterministic lead events using the v2 pipeline when available."""
 
-    This is a first-pass implementation that follows the high-level design:
+    debug_enabled = bool(os.environ.get("BEATENGINE_LEAD_DEBUG"))
+    assets = _get_lead_v2_assets() if _should_use_lead_v2() else None
+    if assets:
+        events, mode_label = _generate_lead_v2(
+            drum_slots=drum_slots,
+            seed_metadata=seed_metadata,
+            bass_notes=bass_notes,
+            lead_mode_override=lead_mode_override,
+            assets=assets,
+        )
+    else:
+        events, mode_label = _generate_lead_v1(
+            drum_slots=drum_slots,
+            seed_metadata=seed_metadata,
+            bass_notes=bass_notes,
+            rng=rng,
+            lead_mode_override=lead_mode_override,
+        )
 
-    - Load lead modes, rhythm templates, and contour templates from JSON.
-    - Select a mode from seed tags (or override).
-    - Build a simple rhythmic skeleton using the first matching template per
-      bar and align events to the drum slot grid using weighted scores.
-    - Apply a basic contour to generate pitches within the mode register.
+    if debug_enabled and events:
+        print(f"[lead-debug] mode={mode_label} events={len(events)}")
+    return events
 
-    The implementation is intentionally conservative but fully deterministic
-    and suitable for unit testing. It can be extended with richer behaviour
-    without breaking the public API.
-    """
 
-    import json
-    from pathlib import Path
-    import random
+def _generate_lead_v1(
+    drum_slots: DrumAnchors,
+    seed_metadata: SeedMetadata,
+    bass_notes: Optional[List[NoteEvent]] = None,
+    rng: Optional[Any] = None,
+    lead_mode_override: Optional[str] = None,
+) -> Tuple[List[NoteEvent], str]:
+    """Legacy lead generator used as a fallback when v2 assets are unavailable."""
 
     # Deterministic RNG: use provided rng or seed from metadata.
     if rng is None:
         rng = random.Random(int(getattr(seed_metadata, 'rng_seed', 0)))
 
     # Load configs from disk.
-    cfg_dir = Path(__file__).resolve().parents[3] / 'configs'
     modes_raw: Dict[str, Dict[str, Any]] = {}
     rhythm_raw: Dict[str, Dict[str, Any]] = {}
     contour_raw: Dict[str, Dict[str, Any]] = {}
     try:
-        modes_raw = json.loads((cfg_dir / 'lead_modes.json').read_text())
+        modes_raw = json.loads((CONFIG_DIR / 'lead_modes.json').read_text())
     except FileNotFoundError:
         modes_raw = {}
     try:
-        rhythm_raw = json.loads((cfg_dir / 'lead_rhythm_templates.json').read_text())
+        rhythm_raw = json.loads((CONFIG_DIR / 'lead_rhythm_templates.json').read_text())
     except FileNotFoundError:
         rhythm_raw = {}
     try:
-        contour_raw = json.loads((cfg_dir / 'lead_contour_templates.json').read_text())
+        contour_raw = json.loads((CONFIG_DIR / 'lead_contour_templates.json').read_text())
     except FileNotFoundError:
         contour_raw = {}
 
@@ -253,4 +303,49 @@ def generate_lead(
             resolve_pitch -= 12
         final.pitch = resolve_pitch
 
-    return events
+    return events, mode.name
+
+
+def _generate_lead_v2(
+    drum_slots: DrumAnchors,
+    seed_metadata: SeedMetadata,
+    bass_notes: Optional[List[NoteEvent]],
+    lead_mode_override: Optional[str],
+    assets: LeadV2Assets,
+) -> Tuple[List[NoteEvent], str]:
+    """Bridge into lead_implementation.lead_v2.generate with config assets."""
+
+    tags = list(getattr(seed_metadata, "tags", []) or [])
+    mode_cfg = select_lead_mode_v2(tags, assets.modes, lead_mode_override)
+
+    call_rhythms = [rt for rt in assets.rhythm_templates if rt.role.upper() == "CALL"]
+    resp_rhythms = [rt for rt in assets.rhythm_templates if rt.role.upper() == "RESP"]
+    call_contours = [ct for ct in assets.contour_templates if ct.role.upper() == "CALL"]
+    resp_contours = [ct for ct in assets.contour_templates if ct.role.upper() == "RESP"]
+
+    if not call_rhythms or not resp_rhythms or not call_contours or not resp_contours:
+        raise RuntimeError("lead_v2 assets must include CALL and RESP templates")
+
+    rng_seed = int(getattr(seed_metadata, "rng_seed", 0))
+    lead_events = generate_lead_v2(
+        anchors=drum_slots,
+        seed_metadata=seed_metadata,
+        bass_midi=bass_notes,
+        mode_cfg=mode_cfg,
+        call_templates=call_rhythms,
+        resp_templates=resp_rhythms,
+        contour_call=call_contours,
+        contour_resp=resp_contours,
+        rng_seed=rng_seed,
+    )
+
+    notes = [
+        NoteEvent(
+            pitch=ev.pitch,
+            velocity=ev.velocity,
+            start_tick=ev.start_tick,
+            duration=ev.duration,
+        )
+        for ev in lead_events
+    ]
+    return notes, mode_cfg.id

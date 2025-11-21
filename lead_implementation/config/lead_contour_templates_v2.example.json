@@ -1,0 +1,50 @@
+[
+  {
+    "id": "ct_call_arch",
+    "role": "CALL",
+    "degree_intervals": [
+      0,
+      2,
+      1,
+      2,
+      -1,
+      -2
+    ],
+    "emphasis_indices": [
+      3
+    ],
+    "shape_type": "arch",
+    "tension_profile": [
+      "low",
+      "medium",
+      "medium",
+      "high",
+      "medium",
+      "resolve"
+    ]
+  },
+  {
+    "id": "ct_resp_mirror",
+    "role": "RESP",
+    "degree_intervals": [
+      0,
+      -2,
+      -1,
+      -2,
+      1,
+      2
+    ],
+    "emphasis_indices": [
+      2
+    ],
+    "shape_type": "ramp_down",
+    "tension_profile": [
+      "low",
+      "medium",
+      "medium",
+      "high",
+      "medium",
+      "resolve"
+    ]
+  }
+]

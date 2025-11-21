@@ -1,0 +1,123 @@
+[
+  {
+    "id": "msl_call_arch",
+    "modes": ["Minimal Stab Lead"],
+    "role": "CALL",
+    "energy": "low",
+    "tags": ["arch", "stabs"],
+    "degree_intervals": [0, 2, 1, -1, -2],
+    "emphasis_indices": [0, 3],
+    "shape_type": "arch",
+    "tension_profile": ["low", "medium", "high", "medium", "resolve"]
+  },
+  {
+    "id": "msl_call_upturn",
+    "modes": ["Minimal Stab Lead"],
+    "role": "CALL",
+    "energy": "medium",
+    "tags": ["turn", "resolve"],
+    "degree_intervals": [0, 1, 2, -1, -1, 1],
+    "emphasis_indices": [2, 5],
+    "shape_type": "turn",
+    "tension_profile": ["low", "medium", "high", "medium", "medium", "resolve"]
+  },
+  {
+    "id": "msl_resp_fall",
+    "modes": ["Minimal Stab Lead"],
+    "role": "RESP",
+    "energy": "low",
+    "tags": ["fall", "resolution"],
+    "degree_intervals": [0, -2, -1, -2, 1],
+    "emphasis_indices": [1, 4],
+    "shape_type": "ramp_down",
+    "tension_profile": ["low", "medium", "high", "medium", "resolve"]
+  },
+  {
+    "id": "roll_call_rise",
+    "modes": ["Rolling Arp Lead", "Hypnotic Arp Lead"],
+    "role": "CALL",
+    "energy": "high",
+    "tags": ["riser", "drive"],
+    "degree_intervals": [0, 1, 1, 2, 1, -2, 1, -1],
+    "emphasis_indices": [3, 6],
+    "shape_type": "ramp_up",
+    "tension_profile": ["low", "medium", "medium", "high", "high", "medium", "medium", "resolve"]
+  },
+  {
+    "id": "roll_resp_echo",
+    "modes": ["Rolling Arp Lead"],
+    "role": "RESP",
+    "energy": "medium",
+    "tags": ["echo", "answer"],
+    "degree_intervals": [0, -1, -1, 0, 1, -2],
+    "emphasis_indices": [2, 5],
+    "shape_type": "arch_down",
+    "tension_profile": ["low", "medium", "medium", "high", "medium", "resolve"]
+  },
+  {
+    "id": "lyr_call_wave",
+    "modes": ["Lyrical Call/Response Lead"],
+    "role": "CALL",
+    "energy": "medium",
+    "tags": ["lyrical", "wave"],
+    "degree_intervals": [0, 2, -1, 1, -2, 2],
+    "emphasis_indices": [1, 3, 5],
+    "shape_type": "wave",
+    "tension_profile": ["low", "medium", "medium", "high", "medium", "resolve"]
+  },
+  {
+    "id": "lyr_resp_cadence",
+    "modes": ["Lyrical Call/Response Lead"],
+    "role": "RESP",
+    "energy": "medium",
+    "tags": ["cadence", "resolve"],
+    "degree_intervals": [0, -1, -2, 0, 1],
+    "emphasis_indices": [2, 4],
+    "shape_type": "ramp_down",
+    "tension_profile": ["low", "medium", "high", "medium", "resolve"]
+  },
+  {
+    "id": "hyp_call_loop",
+    "modes": ["Hypnotic Arp Lead"],
+    "role": "CALL",
+    "energy": "high",
+    "tags": ["loop", "ostinato"],
+    "degree_intervals": [0, 1, 2, -1, 1, -2, 2, -1],
+    "emphasis_indices": [2, 6],
+    "shape_type": "loop",
+    "tension_profile": ["low", "medium", "high", "medium", "high", "medium", "high", "resolve"]
+  },
+  {
+    "id": "hyp_resp_fade",
+    "modes": ["Hypnotic Arp Lead"],
+    "role": "RESP",
+    "energy": "medium",
+    "tags": ["fade", "resolution"],
+    "degree_intervals": [0, -1, -1, -2, 1, 0],
+    "emphasis_indices": [1, 4],
+    "shape_type": "arch_down",
+    "tension_profile": ["low", "medium", "medium", "high", "medium", "resolve"]
+  },
+  {
+    "id": "tech_loop_contour",
+    "modes": ["Techno Loop Lead"],
+    "role": "CALL",
+    "energy": "high",
+    "tags": ["loop"],
+    "degree_intervals": [0, 1, -1, 1, -1, 1, -1, 0],
+    "emphasis_indices": [1, 5],
+    "shape_type": "loop",
+    "tension_profile": ["low", "medium", "medium", "medium", "medium", "medium", "medium", "resolve"]
+  },
+  {
+    "id": "tech_loop_drop",
+    "modes": ["Techno Loop Lead"],
+    "role": "RESP",
+    "energy": "medium",
+    "tags": ["drop"],
+    "degree_intervals": [0, -1, 0, -1, 0, -2, 1],
+    "emphasis_indices": [2, 6],
+    "shape_type": "ramp_down",
+    "tension_profile": ["low", "medium", "medium", "medium", "medium", "high", "resolve"]
+  }
+]

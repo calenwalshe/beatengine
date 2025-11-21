@@ -1,12 +1,109 @@
 {
+  "Hypnotic Arp Lead": {
+    "CALL": [
+      {
+        "events": [
+          {
+            "accent": true,
+            "anchor_type": "near_kick_post",
+            "length": 1,
+            "step": 1
+          },
+          {
+            "accent": false,
+            "anchor_type": "offbeat",
+            "length": 1,
+            "step": 5
+          },
+          {
+            "accent": false,
+            "anchor_type": "offbeat",
+            "length": 1,
+            "step": 9
+          }
+        ],
+        "id": "hal_call_1"
+      }
+    ]
+  },
+  "Lyrical Call/Response Lead": {
+    "CALL": [
+      {
+        "events": [
+          {
+            "accent": true,
+            "anchor_type": "bar_start",
+            "length": 2,
+            "step": 0
+          },
+          {
+            "accent": false,
+            "anchor_type": "snare_zone",
+            "length": 1,
+            "step": 4
+          },
+          {
+            "accent": false,
+            "anchor_type": "snare_zone",
+            "length": 1,
+            "step": 8
+          }
+        ],
+        "id": "lcr_call_1"
+      }
+    ]
+  },
   "Minimal Stab Lead": {
     "CALL": [
       {
-        "id": "msl_call_1",
         "events": [
-          {"step": 2, "length": 1, "anchor_type": "offbeat", "accent": true},
-          {"step": 10, "length": 1, "anchor_type": "snare_zone", "accent": false}
-        ]
+          {
+            "accent": true,
+            "anchor_type": "offbeat",
+            "length": 1,
+            "step": 2
+          },
+          {
+            "accent": false,
+            "anchor_type": "snare_zone",
+            "length": 1,
+            "step": 10
+          }
+        ],
+        "id": "msl_call_1"
+      }
+    ]
+  },
+  "Rolling Arp Lead": {
+    "CALL": [
+      {
+        "events": [
+          {
+            "accent": true,
+            "anchor_type": "bar_start",
+            "length": 1,
+            "step": 0
+          },
+          {
+            "accent": false,
+            "anchor_type": "offbeat",
+            "length": 1,
+            "step": 2
+          },
+          {
+            "accent": false,
+            "anchor_type": "offbeat",
+            "length": 1,
+            "step": 4
+          },
+          {
+            "accent": false,
+            "anchor_type": "offbeat",
+            "length": 1,
+            "step": 6
+          }
+        ],
+        "id": "ral_call_1"
       }
     ]
   }

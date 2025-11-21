@@ -123,3 +123,58 @@ def test_build_lead_context_uses_seed_metadata_tags():
     assert ctx.tags == ["minimal", "warehouse"]
     assert "Minimal Stab Lead" in ctx.modes
     assert ctx.anchors.bar_count == 1
+
+
+def test_select_lead_mode_handles_new_tags():
+    raw_modes = {
+        'Minimal Stab Lead': {
+            'target_notes_per_bar': [2, 4],
+            'max_consecutive_notes': 2,
+            'register_low': 64,
+            'register_high': 76,
+            'rhythmic_personality': 'stabs',
+            'preferred_slot_weights': {},
+            'phrase_length_bars': 4,
+            'contour_profiles': ['arch'],
+            'call_response_style': 'mild',
+        },
+        'Rolling Arp Lead': {
+            'target_notes_per_bar': [4, 8],
+            'max_consecutive_notes': 8,
+            'register_low': 68,
+            'register_high': 88,
+            'rhythmic_personality': 'arp',
+            'preferred_slot_weights': {},
+            'phrase_length_bars': 4,
+            'contour_profiles': ['ascending'],
+            'call_response_style': 'medium',
+        },
+        'Hypnotic Arp Lead': {
+            'target_notes_per_bar': [4, 8],
+            'max_consecutive_notes': 16,
+            'register_low': 68,
+            'register_high': 88,
+            'rhythmic_personality': 'hypnotic_arp',
+            'preferred_slot_weights': {},
+            'phrase_length_bars': 4,
+            'contour_profiles': ['loop'],
+            'call_response_style': 'mild',
+        },
+        'Lyrical Call/Response Lead': {
+            'target_notes_per_bar': [4, 8],
+            'max_consecutive_notes': 4,
+            'register_low': 64,
+            'register_high': 88,
+            'rhythmic_personality': 'lyrical',
+            'preferred_slot_weights': {},
+            'phrase_length_bars': 4,
+            'contour_profiles': ['arch'],
+            'call_response_style': 'strong',
+        },
+    }
+    modes = load_lead_modes(raw_modes)
+
+    assert select_lead_mode(['lyrical'], modes).name == 'Lyrical Call/Response Lead'
+    assert select_lead_mode(['rolling'], modes).name == 'Rolling Arp Lead'
+    assert select_lead_mode(['hypnotic'], modes).name == 'Hypnotic Arp Lead'
+    assert select_lead_mode(['minimal'], modes).name == 'Minimal Stab Lead'

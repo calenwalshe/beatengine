@@ -1,0 +1,62 @@
+[
+  {
+    "id": "rh_call_basic_2b",
+    "role": "CALL",
+    "bars": 2,
+    "events": [
+      {
+        "step_offset": 0,
+        "length_steps": 2,
+        "accent": 0.9,
+        "anchor_type": "kick"
+      },
+      {
+        "step_offset": 4,
+        "length_steps": 1,
+        "accent": 0.7,
+        "anchor_type": "hat"
+      },
+      {
+        "step_offset": 8,
+        "length_steps": 2,
+        "accent": 0.8,
+        "anchor_type": "snare_zone"
+      },
+      {
+        "step_offset": 12,
+        "length_steps": 3,
+        "accent": 1.0,
+        "anchor_type": "snare_zone"
+      }
+    ],
+    "max_step_jitter": 1,
+    "min_inter_note_gap_steps": 1
+  },
+  {
+    "id": "rh_resp_basic_2b",
+    "role": "RESP",
+    "bars": 2,
+    "events": [
+      {
+        "step_offset": 0,
+        "length_steps": 3,
+        "accent": 0.9,
+        "anchor_type": "kick"
+      },
+      {
+        "step_offset": 6,
+        "length_steps": 1,
+        "accent": 0.7,
+        "anchor_type": "hat"
+      },
+      {
+        "step_offset": 12,
+        "length_steps": 2,
+        "accent": 1.0,
+        "anchor_type": "snare_zone"
+      }
+    ],
+    "max_step_jitter": 1,
+    "min_inter_note_gap_steps": 2
+  }
+]

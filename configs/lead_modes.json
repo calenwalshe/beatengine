@@ -1,17 +1,81 @@
 {
-  "Minimal Stab Lead": {
-    "target_notes_per_bar": [2, 4],
-    "max_consecutive_notes": 2,
-    "register_low": 64,
-    "register_high": 76,
-    "rhythmic_personality": "stabs",
-    "preferred_slot_weights": {
-      "is_offbeat_8th": 2.0,
-      "snare_zone": 1.5,
-      "fill_zone": -2.0
-    },
+  "Hypnotic Arp Lead": {
+    "call_response_style": "mild",
+    "contour_profiles": [
+      "loop"
+    ],
+    "max_consecutive_notes": 16,
     "phrase_length_bars": 4,
-    "contour_profiles": ["arch", "stepwise"],
-    "call_response_style": "mild"
+    "preferred_slot_weights": {
+      "near_kick_post": 0.5,
+      "snare_zone": 0.5
+    },
+    "register_high": 88,
+    "register_low": 68,
+    "rhythmic_personality": "hypnotic_arp",
+    "target_notes_per_bar": [
+      4,
+      8
+    ]
+  },
+  "Lyrical Call/Response Lead": {
+    "call_response_style": "strong",
+    "contour_profiles": [
+      "arch"
+    ],
+    "max_consecutive_notes": 4,
+    "phrase_length_bars": 4,
+    "preferred_slot_weights": {
+      "bar_start": 1.0,
+      "snare_zone": 1.5
+    },
+    "register_high": 88,
+    "register_low": 64,
+    "rhythmic_personality": "lyrical",
+    "target_notes_per_bar": [
+      4,
+      8
+    ]
+  },
+  "Minimal Stab Lead": {
+    "call_response_style": "mild",
+    "contour_profiles": [
+      "arch",
+      "stepwise"
+    ],
+    "max_consecutive_notes": 2,
+    "phrase_length_bars": 4,
+    "preferred_slot_weights": {
+      "fill_zone": -2.0,
+      "is_offbeat_8th": 2.0,
+      "snare_zone": 1.5
+    },
+    "register_high": 76,
+    "register_low": 64,
+    "rhythmic_personality": "stabs",
+    "target_notes_per_bar": [
+      2,
+      4
+    ]
+  },
+  "Rolling Arp Lead": {
+    "call_response_style": "medium",
+    "contour_profiles": [
+      "ascending",
+      "stepwise"
+    ],
+    "max_consecutive_notes": 8,
+    "phrase_length_bars": 4,
+    "preferred_slot_weights": {
+      "near_kick_post": 1.0,
+      "snare_zone": 0.5
+    },
+    "register_high": 88,
+    "register_low": 68,
+    "rhythmic_personality": "arp",
+    "target_notes_per_bar": [
+      4,
+      8
+    ]
   }
 }

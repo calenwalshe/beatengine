@@ -1,0 +1,92 @@
+[
+  {
+    "version": "v2",
+    "id": "hypnotic_arp",
+    "tags": [
+      "hypnotic",
+      "minimal"
+    ],
+    "scale": {
+      "scale_type": "dorian",
+      "default_root_pc": 9,
+      "allow_key_from_seed_tag": true
+    },
+    "register": {
+      "low": 60,
+      "high": 76,
+      "gravity_center": 70
+    },
+    "density": {
+      "target_notes_per_bar": 10,
+      "max_consecutive_notes": 8,
+      "min_rest_per_bar_steps": 2
+    },
+    "phrase": {
+      "min_bars": 4,
+      "max_bars": 4,
+      "call_response_pattern": "CCCC",
+      "phrase_forms": [
+        "AAAA"
+      ],
+      "phrase_end_resolution_degrees": [
+        1,
+        5
+      ]
+    },
+    "function_profiles": {
+      "CALL.start.strong": {
+        "chord_tone": 0.9,
+        "color": 0.1,
+        "passing": 0.0
+      }
+    },
+    "degree_weights": {
+      "chord_tone": {
+        "1": 0.4,
+        "3": 0.3,
+        "5": 0.2,
+        "7": 0.1
+      },
+      "color": {
+        "2": 0.3,
+        "4": 0.2,
+        "6": 0.3,
+        "9": 0.2
+      },
+      "passing": {
+        "2": 0.5,
+        "4": 0.25,
+        "6": 0.25
+      }
+    },
+    "contour": {
+      "primary_shapes": [
+        "ramp_up"
+      ],
+      "max_leap_degrees": 2,
+      "step_bias": 0.8
+    },
+    "variation": {
+      "rhythm_variation_strength": 0.1,
+      "pitch_variation_strength": 0.15,
+      "register_drift_per_phrase": 2,
+      "contour_inversion_prob": 0.05,
+      "transposition_choices": [
+        0,
+        2,
+        -2
+      ]
+    },
+    "slot_preferences": {
+      "CALL": {
+        "near_kick_post": 1.4,
+        "snare_zone": 0.8
+      }
+    },
+    "bass_interaction": {
+      "avoid_unison_with_bass": true,
+      "avoid_root_on_bass_hits": false,
+      "min_semitone_distance_from_bass": 3
+    }
+  }
+]

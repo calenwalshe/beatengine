@@ -1,11 +1,70 @@
 {
+  "Hypnotic Arp Lead": {
+    "CALL": [
+      {
+        "emphasis_indices": [
+          0
+        ],
+        "id": "hal_contour_1",
+        "intervals": [
+          0,
+          2,
+          5
+        ],
+        "shape": "loop"
+      }
+    ]
+  },
+  "Lyrical Call/Response Lead": {
+    "CALL": [
+      {
+        "emphasis_indices": [
+          0,
+          4
+        ],
+        "id": "lcr_contour_1",
+        "intervals": [
+          0,
+          2,
+          3,
+          5,
+          7
+        ],
+        "shape": "arch"
+      }
+    ]
+  },
   "Minimal Stab Lead": {
     "CALL": [
       {
+        "emphasis_indices": [
+          0
+        ],
         "id": "msl_contour_1",
-        "intervals": [0, 2, -1],
-        "emphasis_indices": [0],
+        "intervals": [
+          0,
+          2,
+          -1
+        ],
         "shape": "arch"
+      }
+    ]
+  },
+  "Rolling Arp Lead": {
+    "CALL": [
+      {
+        "emphasis_indices": [
+          0,
+          3
+        ],
+        "id": "ral_contour_1",
+        "intervals": [
+          0,
+          2,
+          4,
+          7
+        ],
+        "shape": "ascending"
       }
     ]
   }
