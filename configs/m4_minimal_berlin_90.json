@@ -1,0 +1,140 @@
+{
+  "mode": "m4",
+  "bpm": 90,
+  "ppq": 1920,
+  "bars": 32,
+  "seed": 9090,
+  "out": "out/minimal_berlin_90.mid",
+  "log_path": "out/minimal_berlin_90_metrics.csv",
+  "guard": {
+    "min_E": 0.72,
+    "max_rot_rate": 0.08,
+    "kick_immutable": false
+  },
+  "targets": {
+    "S_low": 0.35,
+    "S_high": 0.55,
+    "H_low": 0.30,
+    "H_high": 0.60,
+    "hat_density_target": 0.55,
+    "hat_density_tol": 0.05
+  },
+  "layers": {
+    "kick": {
+      "rot": 0,
+      "rotation_rate_per_bar": 0.03,
+      "ghost_pre1_prob": 0.18,
+      "displace_into_2_prob": 0.10
+    },
+    "hat_c": {
+      "steps": 16,
+      "fills": 8,
+      "swing_percent": 0.555,
+      "beat_bins_ms": [-10, -6, -2, 0],
+      "beat_bins_probs": [0.40, 0.30, 0.20, 0.10],
+      "beat_bin_cap_ms": 10,
+      "conditions": [
+        {
+          "kind": "EVERY_N",
+          "n": 4,
+          "offset": 1
+        },
+        {
+          "kind": "PROB",
+          "p": 0.9
+        }
+      ]
+    },
+    "hat_o": {
+      "steps": 16,
+      "fills": 12,
+      "offbeats_only": true,
+      "ratchet_prob": 0.08,
+      "ratchet_repeat": 3,
+      "swing_percent": 0.55,
+      "beat_bins_ms": [-2, 0, 2],
+      "beat_bins_probs": [0.20, 0.60, 0.20],
+      "beat_bin_cap_ms": 10,
+      "choke_with_note": 42,
+      "conditions": [
+        {
+          "kind": "PROB",
+          "p": 0.85
+        }
+      ]
+    },
+    "snare": {
+      "steps": 16,
+      "fills": 2,
+      "rot": 4,
+      "velocity": 96,
+      "conditions": [
+        {
+          "kind": "PROB",
+          "p": 0.65
+        },
+        {
+          "kind": "EVERY_N",
+          "n": 4,
+          "offset": 2,
+          "negate": true
+        }
+      ]
+    },
+    "clap": {
+      "steps": 16,
+      "fills": 1,
+      "rot": 4,
+      "velocity": 90,
+      "conditions": [
+        {
+          "kind": "PROB",
+          "p": 0.55
+        },
+        {
+          "kind": "EVERY_N",
+          "n": 8,
+          "offset": 4
+        }
+      ]
+    }
+  },
+  "modulators": [
+    {
+      "name": "hat_swing",
+      "param_path": "hat_c.swing_percent",
+      "mod": {
+        "mode": "ou",
+        "min_val": 0.54,
+        "max_val": 0.57,
+        "step_per_bar": 0.006,
+        "tau": 24,
+        "max_delta_per_bar": 0.01
+      }
+    },
+    {
+      "name": "oh_ratchet",
+      "param_path": "hat_o.ratchet_prob",
+      "mod": {
+        "mode": "random_walk",
+        "min_val": 0.05,
+        "max_val": 0.14,
+        "step_per_bar": 0.012,
+        "max_delta_per_bar": 0.02
+      }
+    },
+    {
+      "name": "thin_bias",
+      "param_path": "thin_bias",
+      "mod": {
+        "mode": "ou",
+        "min_val": -0.55,
+        "max_val": -0.15,
+        "step_per_bar": 0.02,
+        "tau": 28,
+        "max_delta_per_bar": 0.03
+      }
+    }
+  ]
+}
+
