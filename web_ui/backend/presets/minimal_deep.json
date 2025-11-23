@@ -1,0 +1,54 @@
+{
+  "name": "minimal_deep",
+  "display_name": "Minimal Deep",
+  "description": "Sparse, hypnotic bass with deep sub-focus and minimal movement",
+  "drum_pattern": "minimal_sparse",
+  "theory_context": {
+    "key_scale": "E_minor",
+    "tempo_bpm": 124.0
+  },
+  "controls": {
+    "mode_and_behavior_controls": {
+      "strategy": "fixed_mode",
+      "fixed_mode": "sub_anchor"
+    },
+    "rhythm_controls": {
+      "rhythmic_complexity": 0.2,
+      "note_density": 0.25,
+      "onbeat_offbeat_balance": -0.5,
+      "kick_interaction_mode": "avoid_kick",
+      "swing_amount": 0.0,
+      "groove_depth": 0.4,
+      "use_triplets": false,
+      "pattern_length_bars": 4
+    },
+    "melody_controls": {
+      "note_range_octaves": 1,
+      "base_octave": 2,
+      "root_note_emphasis": 0.95,
+      "interval_jump_magnitude": 0.2,
+      "melodic_intensity": 0.2
+    },
+    "articulation_controls": {
+      "velocity_normal": 75,
+      "velocity_accent": 95,
+      "accent_chance": 0.2,
+      "accent_pattern_mode": "downbeat_focused",
+      "gate_length": 0.6,
+      "tie_notes": true,
+      "slide_chance": 0.05,
+      "humanize_timing": 0.15,
+      "humanize_velocity": 0.08
+    },
+    "theory_controls": {
+      "harmonic_strictness": 0.95,
+      "chord_tone_priority": 0.9,
+      "minorness": 0.8
+    },
+    "drum_interaction_controls": {
+      "kick_avoid_strength": 0.95,
+      "snare_backbeat_preference": 0.3,
+      "hat_sync_strength": 0.3
+    }
+  }
+}

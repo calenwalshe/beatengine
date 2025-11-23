@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bass V2 Generator</title>
+  <style>
+    :root {
+      --bg-dark: #1a1a1a;
+      --bg-medium: #2a2a2a;
+      --bg-light: #3a3a3a;
+      --text-primary: #e0e0e0;
+      --text-secondary: #a0a0a0;
+      --accent: #00d9ff;
+      --accent-hover: #00b8d4;
+      --success: #4caf50;
+      --error: #f44336;
+      --border: #404040;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-header {
+      background-color: var(--bg-medium);
+      padding: 1.5rem 2rem;
+      border-bottom: 2px solid var(--accent);
+    }
+
+    .app-header h1 {
+      font-size: 2rem;
+      color: var(--accent);
+      margin-bottom: 0.25rem;
+    }
+
+    .app-header p {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .app-container {
+      display: flex;
+      flex: 1;
+    }
+
+    .sidebar {
+      width: 320px;
+      background-color: var(--bg-medium);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+
+    .main-content {
+      flex: 1;
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+
+    .section {
+      margin-bottom: 2rem;
+    }
+
+    .section h3 {
+      font-size: 1.1rem;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+    }
+
+    select, input[type="range"] {
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+
+    select {
+      background-color: var(--bg-light);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 0.75rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    input[type="range"] {
+      height: 4px;
+      background: var(--bg-light);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .control-value {
+      float: right;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .preset-button, .button {
+      background-color: var(--bg-light);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 0.75rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      width: 100%;
+      margin-bottom: 0.5rem;
+      text-align: left;
+      transition: all 0.2s;
+    }
+
+    .preset-button:hover, .button:hover {
+      background-color: var(--bg-dark);
+      border-color: var(--accent);
+    }
+
+    .generate-button {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+      border: none;
+      color: var(--bg-dark);
+      padding: 1.25rem 2rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin: 2rem 0;
+      transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(0, 217, 255, 0.3);
+    }
+
+    .generate-button:hover:not(:disabled) {
+      transform: translateY(-2px);
+    }
+
+    .generate-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .preview-panel {
+      background-color: var(--bg-medium);
+      border: 2px solid var(--accent);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-top: 1rem;
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .preview-stat {
+      background-color: var(--bg-light);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .download-button {
+      background-color: var(--success);
+      border: none;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-top: 1rem;
+    }
+
+    .error-message {
+      background-color: rgba(244, 67, 54, 0.1);
+      border: 1px solid var(--error);
+      border-radius: 4px;
+      padding: 1rem;
+      color: var(--error);
+      margin: 1rem 0;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .control-group {
+      background-color: var(--bg-medium);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+
+    .control-header {
+      background-color: var(--bg-light);
+      padding: 1rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+    }
+
+    .control-content {
+      padding: 1rem;
+    }
+
+    .control-item {
+      margin-bottom: 1.25rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>Bass V2 Generator</h1>
+      <p>Techno Bass Line Generator</p>
+    </header>
+
+    <div class="app-container">
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <!-- Presets -->
+        <div class="section">
+          <h3>Presets</h3>
+          <div id="presetList"></div>
+        </div>
+
+        <!-- Drum Pattern -->
+        <div class="section">
+          <h3>Drum Pattern</h3>
+          <select id="drumPattern">
+            <option value="berlin_syncopated">Berlin Syncopated</option>
+          </select>
+        </div>
+
+        <!-- Theory -->
+        <div class="section">
+          <h3>Music Theory</h3>
+          <label>Key/Scale</label>
+          <select id="keyScale">
+            <option value="D_minor">D minor</option>
+            <option value="A_minor">A minor</option>
+            <option value="E_minor">E minor</option>
+            <option value="C_minor">C minor</option>
+          </select>
+
+          <label>Tempo (BPM) <span class="control-value" id="tempoValue">130</span></label>
+          <input type="range" id="tempo" min="100" max="160" value="130">
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="main-content">
+        <h2 style="color: var(--accent); margin-bottom: 1.5rem;">Parameters</h2>
+
+        <!-- Rhythm Controls -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>Rhythm</span>
+            <span>▼</span>
+          </div>
+          <div class="control-content">
+            <div class="control-item">
+              <label>Note Density <span class="control-value" id="densityValue">0.5</span></label>
+              <input type="range" id="noteDensity" min="0.1" max="1.0" step="0.05" value="0.5">
+            </div>
+
+            <div class="control-item">
+              <label>Complexity <span class="control-value" id="complexityValue">0.5</span></label>
+              <input type="range" id="complexity" min="0.0" max="1.0" step="0.05" value="0.5">
+            </div>
+
+            <div class="control-item">
+              <label>Kick Interaction</label>
+              <select id="kickInteraction">
+                <option value="avoid_kick">Avoid Kick</option>
+                <option value="reinforce_kick">Reinforce Kick</option>
+                <option value="balanced">Balanced</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Melody Controls -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>Melody</span>
+            <span>▼</span>
+          </div>
+          <div class="control-content">
+            <div class="control-item">
+              <label>Root Emphasis <span class="control-value" id="rootEmphasisValue">0.8</span></label>
+              <input type="range" id="rootEmphasis" min="0.0" max="1.0" step="0.05" value="0.8">
+            </div>
+
+            <div class="control-item">
+              <label>Interval Jumps <span class="control-value" id="intervalJumpsValue">0.4</span></label>
+              <input type="range" id="intervalJumps" min="0.0" max="1.0" step="0.05" value="0.4">
+            </div>
+          </div>
+        </div>
+
+        <!-- Generate Button -->
+        <button class="generate-button" id="generateBtn">▶ Generate Bass</button>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="error-message hidden"></div>
+
+        <!-- Preview Panel -->
+        <div id="previewPanel" class="preview-panel hidden">
+          <h3 style="color: var(--accent); margin-bottom: 1rem;">Generated Bass</h3>
+
+          <div class="preview-grid">
+            <div class="preview-stat">
+              <div class="stat-label">Notes</div>
+              <div class="stat-value" id="noteCount">--</div>
+            </div>
+            <div class="preview-stat">
+              <div class="stat-label">Duration</div>
+              <div class="stat-value" id="duration">--</div>
+            </div>
+            <div class="preview-stat">
+              <div class="stat-label">Bars</div>
+              <div class="stat-value" id="bars">--</div>
+            </div>
+            <div class="preview-stat">
+              <div class="stat-label">Tempo</div>
+              <div class="stat-value" id="previewTempo">--</div>
+            </div>
+          </div>
+
+          <button class="download-button" id="downloadBtn">⬇ Download MIDI</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:5001';
+    let currentFilename = null;
+
+    // Load presets
+    async function loadPresets() {
+      try {
+        const response = await fetch(`${API_BASE}/api/presets`);
+        const data = await response.json();
+        const presetList = document.getElementById('presetList');
+
+        data.presets.forEach(preset => {
+          const button = document.createElement('button');
+          button.className = 'preset-button';
+          button.textContent = preset.display_name;
+          button.onclick = () => loadPreset(preset.name);
+          presetList.appendChild(button);
+        });
+      } catch (err) {
+        console.error('Failed to load presets:', err);
+      }
+    }
+
+    // Load drum patterns
+    async function loadDrumPatterns() {
+      try {
+        const response = await fetch(`${API_BASE}/api/drum-patterns`);
+        const data = await response.json();
+        const select = document.getElementById('drumPattern');
+        select.innerHTML = '';
+
+        data.patterns.forEach(pattern => {
+          const option = document.createElement('option');
+          option.value = pattern.name;
+          option.textContent = pattern.name.replace(/_/g, ' ');
+          select.appendChild(option);
+        });
+      } catch (err) {
+        console.error('Failed to load patterns:', err);
+      }
+    }
+
+    // Load specific preset
+    async function loadPreset(name) {
+      try {
+        const response = await fetch(`${API_BASE}/api/presets/${name}`);
+        const preset = await response.json();
+
+        // Apply preset values
+        document.getElementById('drumPattern').value = preset.drum_pattern;
+        document.getElementById('keyScale').value = preset.theory_context.key_scale;
+        document.getElementById('tempo').value = preset.theory_context.tempo_bpm;
+        document.getElementById('tempoValue').textContent = preset.theory_context.tempo_bpm;
+
+        // Apply controls if present
+        if (preset.controls) {
+          const rhythm = preset.controls.rhythm_controls || {};
+          if (rhythm.note_density !== undefined) {
+            document.getElementById('noteDensity').value = rhythm.note_density;
+            document.getElementById('densityValue').textContent = rhythm.note_density.toFixed(2);
+          }
+          if (rhythm.rhythmic_complexity !== undefined) {
+            document.getElementById('complexity').value = rhythm.rhythmic_complexity;
+            document.getElementById('complexityValue').textContent = rhythm.rhythmic_complexity.toFixed(2);
+          }
+          if (rhythm.kick_interaction_mode) {
+            document.getElementById('kickInteraction').value = rhythm.kick_interaction_mode;
+          }
+
+          const melody = preset.controls.melody_controls || {};
+          if (melody.root_note_emphasis !== undefined) {
+            document.getElementById('rootEmphasis').value = melody.root_note_emphasis;
+            document.getElementById('rootEmphasisValue').textContent = melody.root_note_emphasis.toFixed(2);
+          }
+          if (melody.interval_jump_magnitude !== undefined) {
+            document.getElementById('intervalJumps').value = melody.interval_jump_magnitude;
+            document.getElementById('intervalJumpsValue').textContent = melody.interval_jump_magnitude.toFixed(2);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load preset:', err);
+        showError('Failed to load preset');
+      }
+    }
+
+    // Generate bass
+    async function generateBass() {
+      const button = document.getElementById('generateBtn');
+      button.disabled = true;
+      button.textContent = 'Generating...';
+      hideError();
+      document.getElementById('previewPanel').classList.add('hidden');
+
+      try {
+        const payload = {
+          drum_pattern: document.getElementById('drumPattern').value,
+          theory_context: {
+            key_scale: document.getElementById('keyScale').value,
+            tempo_bpm: parseFloat(document.getElementById('tempo').value),
+          },
+          controls: {
+            rhythm_controls: {
+              note_density: parseFloat(document.getElementById('noteDensity').value),
+              rhythmic_complexity: parseFloat(document.getElementById('complexity').value),
+              kick_interaction_mode: document.getElementById('kickInteraction').value,
+            },
+            melody_controls: {
+              root_note_emphasis: parseFloat(document.getElementById('rootEmphasis').value),
+              interval_jump_magnitude: parseFloat(document.getElementById('intervalJumps').value),
+            },
+          },
+        };
+
+        const response = await fetch(`${API_BASE}/api/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          showPreview(data);
+          currentFilename = data.filename;
+        } else {
+          showError(data.error || 'Generation failed');
+        }
+      } catch (err) {
+        showError(err.message || 'Network error');
+      } finally {
+        button.disabled = false;
+        button.textContent = '▶ Generate Bass';
+      }
+    }
+
+    // Show preview
+    function showPreview(result) {
+      const { preview, theory_context } = result;
+
+      document.getElementById('noteCount').textContent = preview.note_count;
+      document.getElementById('duration').textContent = preview.length_seconds + 's';
+      document.getElementById('bars').textContent = preview.length_bars;
+      document.getElementById('previewTempo').textContent = theory_context.tempo_bpm;
+
+      document.getElementById('previewPanel').classList.remove('hidden');
+    }
+
+    // Download MIDI
+    function downloadMIDI() {
+      if (currentFilename) {
+        window.location.href = `${API_BASE}/api/download/${currentFilename}`;
+      }
+    }
+
+    // Show error
+    function showError(message) {
+      const errorDiv = document.getElementById('errorMessage');
+      errorDiv.textContent = 'Error: ' + message;
+      errorDiv.classList.remove('hidden');
+    }
+
+    // Hide error
+    function hideError() {
+      document.getElementById('errorMessage').classList.add('hidden');
+    }
+
+    // Setup event listeners
+    document.getElementById('tempo').addEventListener('input', (e) => {
+      document.getElementById('tempoValue').textContent = e.target.value;
+    });
+
+    document.getElementById('noteDensity').addEventListener('input', (e) => {
+      document.getElementById('densityValue').textContent = parseFloat(e.target.value).toFixed(2);
+    });
+
+    document.getElementById('complexity').addEventListener('input', (e) => {
+      document.getElementById('complexityValue').textContent = parseFloat(e.target.value).toFixed(2);
+    });
+
+    document.getElementById('rootEmphasis').addEventListener('input', (e) => {
+      document.getElementById('rootEmphasisValue').textContent = parseFloat(e.target.value).toFixed(2);
+    });
+
+    document.getElementById('intervalJumps').addEventListener('input', (e) => {
+      document.getElementById('intervalJumpsValue').textContent = parseFloat(e.target.value).toFixed(2);
+    });
+
+    document.getElementById('generateBtn').addEventListener('click', generateBass);
+    document.getElementById('downloadBtn').addEventListener('click', downloadMIDI);
+
+    // Initialize
+    loadPresets();
+    loadDrumPatterns();
+  </script>
+</body>
+</html>

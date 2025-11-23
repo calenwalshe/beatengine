@@ -1,0 +1,54 @@
+{
+  "name": "berlin_classic",
+  "display_name": "Berlin Classic",
+  "description": "Classic modern Berlin techno bass: deep sub, syncopated, minimal",
+  "drum_pattern": "berlin_syncopated",
+  "theory_context": {
+    "key_scale": "D_minor",
+    "tempo_bpm": 130.0
+  },
+  "controls": {
+    "mode_and_behavior_controls": {
+      "strategy": "auto_from_drums",
+      "fixed_mode": null
+    },
+    "rhythm_controls": {
+      "rhythmic_complexity": 0.65,
+      "note_density": 0.50,
+      "onbeat_offbeat_balance": 0.0,
+      "kick_interaction_mode": "avoid_kick",
+      "swing_amount": 0.0,
+      "groove_depth": 0.5,
+      "use_triplets": false,
+      "pattern_length_bars": 2
+    },
+    "melody_controls": {
+      "note_range_octaves": 1,
+      "base_octave": 2,
+      "root_note_emphasis": 0.9,
+      "interval_jump_magnitude": 0.3,
+      "melodic_intensity": 0.4
+    },
+    "articulation_controls": {
+      "velocity_normal": 80,
+      "velocity_accent": 110,
+      "accent_chance": 0.3,
+      "accent_pattern_mode": "offbeat_focused",
+      "gate_length": 0.35,
+      "tie_notes": false,
+      "slide_chance": 0.1,
+      "humanize_timing": 0.1,
+      "humanize_velocity": 0.1
+    },
+    "theory_controls": {
+      "harmonic_strictness": 0.9,
+      "chord_tone_priority": 0.8,
+      "minorness": 0.7
+    },
+    "drum_interaction_controls": {
+      "kick_avoid_strength": 0.9,
+      "snare_backbeat_preference": 0.5,
+      "hat_sync_strength": 0.5
+    }
+  }
+}

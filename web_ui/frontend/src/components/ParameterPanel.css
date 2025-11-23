@@ -1,0 +1,41 @@
+.parameter-panel h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: var(--accent);
+}
+
+.control-section {
+  background-color: var(--bg-medium);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.section-header {
+  width: 100%;
+  background-color: var(--bg-light);
+  border: none;
+  color: var(--text-primary);
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.section-header:hover {
+  background-color: var(--bg-dark);
+}
+
+.expand-icon {
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+
+.section-content {
+  padding: 1rem;
+}

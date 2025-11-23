@@ -1,0 +1,54 @@
+{
+  "name": "hard_driving",
+  "display_name": "Hard Driving",
+  "description": "Aggressive, dense bass with high energy and kick reinforcement",
+  "drum_pattern": "hard_techno",
+  "theory_context": {
+    "key_scale": "F_minor",
+    "tempo_bpm": 138.0
+  },
+  "controls": {
+    "mode_and_behavior_controls": {
+      "strategy": "auto_from_drums",
+      "fixed_mode": null
+    },
+    "rhythm_controls": {
+      "rhythmic_complexity": 0.8,
+      "note_density": 0.75,
+      "onbeat_offbeat_balance": 0.0,
+      "kick_interaction_mode": "reinforce_kick",
+      "swing_amount": 0.0,
+      "groove_depth": 0.7,
+      "use_triplets": false,
+      "pattern_length_bars": 2
+    },
+    "melody_controls": {
+      "note_range_octaves": 2,
+      "base_octave": 2,
+      "root_note_emphasis": 0.7,
+      "interval_jump_magnitude": 0.6,
+      "melodic_intensity": 0.8
+    },
+    "articulation_controls": {
+      "velocity_normal": 90,
+      "velocity_accent": 120,
+      "accent_chance": 0.6,
+      "accent_pattern_mode": "downbeat_focused",
+      "gate_length": 0.4,
+      "tie_notes": false,
+      "slide_chance": 0.2,
+      "humanize_timing": 0.05,
+      "humanize_velocity": 0.15
+    },
+    "theory_controls": {
+      "harmonic_strictness": 0.8,
+      "chord_tone_priority": 0.6,
+      "minorness": 0.7
+    },
+    "drum_interaction_controls": {
+      "kick_avoid_strength": 0.2,
+      "snare_backbeat_preference": 0.7,
+      "hat_sync_strength": 0.8
+    }
+  }
+}

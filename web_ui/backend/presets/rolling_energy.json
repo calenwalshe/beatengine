@@ -1,0 +1,54 @@
+{
+  "name": "rolling_energy",
+  "display_name": "Rolling Energy",
+  "description": "High-energy rolling bass line with dense notes and driving feel",
+  "drum_pattern": "rolling_techno",
+  "theory_context": {
+    "key_scale": "A_minor",
+    "tempo_bpm": 135.0
+  },
+  "controls": {
+    "mode_and_behavior_controls": {
+      "strategy": "fixed_mode",
+      "fixed_mode": "rolling_ostinato"
+    },
+    "rhythm_controls": {
+      "rhythmic_complexity": 0.75,
+      "note_density": 0.70,
+      "onbeat_offbeat_balance": 0.3,
+      "kick_interaction_mode": "balanced",
+      "swing_amount": 0.0,
+      "groove_depth": 0.6,
+      "use_triplets": false,
+      "pattern_length_bars": 2
+    },
+    "melody_controls": {
+      "note_range_octaves": 1,
+      "base_octave": 2,
+      "root_note_emphasis": 0.6,
+      "interval_jump_magnitude": 0.5,
+      "melodic_intensity": 0.7
+    },
+    "articulation_controls": {
+      "velocity_normal": 85,
+      "velocity_accent": 115,
+      "accent_chance": 0.5,
+      "accent_pattern_mode": "offbeat_focused",
+      "gate_length": 0.55,
+      "tie_notes": false,
+      "slide_chance": 0.15,
+      "humanize_timing": 0.08,
+      "humanize_velocity": 0.12
+    },
+    "theory_controls": {
+      "harmonic_strictness": 0.85,
+      "chord_tone_priority": 0.7,
+      "minorness": 0.6
+    },
+    "drum_interaction_controls": {
+      "kick_avoid_strength": 0.4,
+      "snare_backbeat_preference": 0.6,
+      "hat_sync_strength": 0.7
+    }
+  }
+}
