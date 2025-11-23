@@ -1,0 +1,1252 @@
+{
+  "module": "EDM_Bass_Engine_Implementation_Guide",
+  "audience": "expert_code_machine",
+  "version": "1.0.0-full-pack",
+  "goals": [
+    "Implement a music-theory-aware EDM bass generator that consumes m4 drum output and produces static MIDI bass patterns.",
+    "Use the embedded spec as the single source of truth for controls, pipeline stages, bass mode behaviors, and API wiring.",
+    "Expose a clean API that can be driven by higher-level tools (LLMs, UIs, DAWs) using JSON configuration.",
+    "Document the bass generator API, internal algorithm, and test strategy in a way that can be automatically rendered into human-facing docs."
+  ],
+  "top_level_api": {
+    "entrypoints": [
+      {
+        "name": "generate_bass_midi_from_drums",
+        "signature": "generate_bass_midi_from_drums(m4_drum_output, theory_context, global_controls) -> { bass_midi_clip, metadata }",
+        "description": "Main function that wires the whole pipeline: drums -> slot grid -> mode selection -> step scoring -> pitch mapping -> validation."
+      }
+    ],
+    "data_contracts": {
+      "m4_drum_output": {
+        "type": "object",
+        "fields": {
+          "bars": "array of bar objects",
+          "bar[i].steps": "array[16] of step objects for bar i",
+          "bar[i].steps[j].kick": "boolean",
+          "bar[i].steps[j].hat": "boolean",
+          "bar[i].steps[j].snare": "boolean",
+          "bar[i].steps[j].velocity": "integer (0–127, optional)"
+        }
+      },
+      "theory_context": {
+        "type": "object",
+        "fields": {
+          "key_scale": "string, e.g., 'A_minor', 'F_mixolydian'",
+          "chord_progression": "optional array of chord descriptors aligned to bars or sub-bars",
+          "tempo_bpm": "number"
+        }
+      },
+      "global_controls": {
+        "type": "object",
+        "description": "Subset or override of spec.sections.recommended_controls plus style/genre preset if desired."
+      },
+      "bass_midi_clip": {
+        "type": "object",
+        "fields": {
+          "notes": "array of { pitch:int, start_beat:float, duration_beats:float, velocity:int, metadata:object }",
+          "length_bars": "integer"
+        }
+      }
+    }
+  },
+  "instructions": {
+    "1_parse_and_bind_spec": {
+      "description": "Bind the embedded 'spec' object as the configuration backbone.",
+      "steps": [
+        "Parse the 'spec' JSON object under the 'spec' key.",
+        "Expose helper functions to access: recommended_controls, system_integration.pipeline, system_integration.bass_mode_profiles.",
+        "Do NOT hardcode values that already exist in 'spec'; read them at runtime so future spec tweaks require zero code changes."
+      ]
+    },
+    "2_define_core_data_structures": {
+      "description": "Create language-appropriate structs/classes to represent the runtime model.",
+      "structures": [
+        {
+          "name": "DrumStep",
+          "fields": [
+            "kick:boolean",
+            "hat:boolean",
+            "snare:boolean",
+            "velocity:int (optional)"
+          ]
+        },
+        {
+          "name": "DrumBar",
+          "fields": [
+            "steps:DrumStep[16]"
+          ]
+        },
+        {
+          "name": "SlotFeature",
+          "fields": [
+            "index:int",
+            "has_kick:boolean",
+            "has_hat:boolean",
+            "has_snare:boolean",
+            "is_downbeat:boolean",
+            "is_backbeat:boolean",
+            "is_offbeat:boolean",
+            "is_gap:boolean",
+            "drum_energy_local:float"
+          ]
+        },
+        {
+          "name": "BarSlotGrid",
+          "fields": [
+            "bar_index:int",
+            "slots:SlotFeature[16]",
+            "drum_energy_bar:float"
+          ]
+        },
+        {
+          "name": "ResolvedControls",
+          "description": "Final resolved control set after merging presets, mode defaults, and user overrides.",
+          "fields": [
+            "theory_controls:object",
+            "rhythm_controls:object",
+            "melody_controls:object",
+            "articulation_controls:object",
+            "pattern_variation_controls:object",
+            "variation_and_randomization_controls:object",
+            "drum_interaction_controls:object",
+            "mode_and_behavior_controls:object",
+            "output_controls:object",
+            "advanced_overrides:object"
+          ]
+        },
+        {
+          "name": "BassModeAssignment",
+          "fields": [
+            "bar_index:int",
+            "mode_name:string",
+            "resolved_controls:ResolvedControls"
+          ]
+        },
+        {
+          "name": "ScoredSlot",
+          "fields": [
+            "slot:SlotFeature",
+            "score:float",
+            "selected:boolean"
+          ]
+        },
+        {
+          "name": "BassNote",
+          "fields": [
+            "pitch:int",
+            "start_beat:float",
+            "duration_beats:float",
+            "velocity:int",
+            "metadata:object"
+          ]
+        }
+      ]
+    },
+    "3_control_resolution_layer": {
+      "description": "Implement logic to combine presets, bass_mode_profiles, and user/global overrides into a ResolvedControls object per bar.",
+      "steps": [
+        "Add a function: resolve_controls(style_or_genre_preset, bass_mode_name, user_overrides, api_surface_defaults) -> ResolvedControls.",
+        "Follow spec.sections.system_integration.parameter_wiring_notes.control_resolution_order strictly.",
+        "Map textual categories like 'high', 'medium', 'low', 'very_high' to numeric values in [0,1] or discrete buckets, consistently:",
+        "  - Implement a single mapping table (e.g., { very_low:0.1, low:0.25, medium:0.5, medium_high:0.7, high:0.8, very_high:0.95 }).",
+        "Persist this mapping centrally so all modules share it.",
+        "Ensure ResolvedControls fields are directly derived from api_surface.control_groups definitions (see api_surface section)."
+      ]
+    },
+    "4_pipeline_implementation": {
+      "description": "Implement the five pipeline steps exactly as described under spec.sections.system_integration.pipeline, each as a pure function.",
+      "steps": [
+        {
+          "id": "4.1",
+          "name": "drums_to_slot_grid",
+          "map_from_spec": "spec.sections.system_integration.pipeline.step_1_slot_grid_from_drums",
+          "requirements": [
+            "Input: array[DrumBar].",
+            "Output: array[BarSlotGrid].",
+            "Implement detection of is_downbeat/is_backbeat/is_offbeat using step index and time signature (assume 4/4, 16 steps per bar: 0,4,8,12 as beats; 4 and 12 as backbeats by default).",
+            "Compute drum_energy_bar as sum or weighted sum of hit velocities/booleans per bar.",
+            "Compute drum_energy_local per SlotFeature as local hit count or energy."
+          ]
+        },
+        {
+          "id": "4.2",
+          "name": "bass_mode_selection",
+          "map_from_spec": "spec.sections.system_integration.pipeline.step_2_select_bass_mode",
+          "requirements": [
+            "Input: array[BarSlotGrid], style_or_genre_preset, global_controls.",
+            "Output: array[BassModeAssignment].",
+            "Compute energy band from each BarSlotGrid.drum_energy_bar (e.g. quantile-based or fixed thresholds).",
+            "Use bass_mode_profiles and energy band to pick a default mode where none is explicitly requested.",
+            "For each bar, call resolve_controls(...), and store mode_name + resolved_controls in BassModeAssignment."
+          ]
+        },
+        {
+          "id": "4.3",
+          "name": "step_scoring_and_selection",
+          "map_from_spec": "spec.sections.system_integration.pipeline.step_3_score_and_select_steps",
+          "requirements": [
+            "Input: BarSlotGrid, BassModeAssignment (for that bar).",
+            "Output: array[ScoredSlot] with selected flags and a list of selected indices.",
+            "Compute scoring_features_per_slot as described in spec.sections.system_integration.pipeline.step_3_score_and_select_steps.scoring_features_per_slot.",
+            "Use ResolvedControls.rhythm_controls, ResolvedControls.drum_interaction_controls and the mode's step_scoring_bias to define weights for each feature.",
+            "Translate note_density into a target number of selected steps (N) per bar.",
+            "After scoring, sort by score and select top-N, enforcing minimal spacing constraints and any hard masks (e.g., avoid same-step-as-kick if required)."
+          ]
+        },
+        {
+          "id": "4.4",
+          "name": "pitch_mapping_and_midi",
+          "map_from_spec": "spec.sections.system_integration.pipeline.step_4_map_steps_to_notes_and_write_midi",
+          "requirements": [
+            "Input: array[ScoredSlot], BassModeAssignment, theory_context, previous bar's last BassNote (optional for continuity).",
+            "Output: array[BassNote].",
+            "Implement a function select_scale_degree(previous_degree, controls, bar_chord, slot_context) -> degree.",
+            "Implement root_note_emphasis and scale_degree_bias as probability distributions over allowed degrees.",
+            "Implement interval_jump_magnitude by biasing toward: small intervals for 'small'/'medium', octave/large leaps for 'high'.",
+            "Clamp generated pitches to note_range_octaves around a base octave (configurable).",
+            "Map degrees to MIDI pitches given key_scale and bar chord.",
+            "Apply articulation: velocities from velocity_normal/accent and accent_chance; durations from gate_length; slides from slide_chance and overlapping note logic."
+          ]
+        },
+        {
+          "id": "4.5",
+          "name": "validation_and_post_processing",
+          "map_from_spec": "spec.sections.system_integration.pipeline.step_5_validate_and_adjust",
+          "requirements": [
+            "Input: array[BassNote], BarSlotGrid, BassModeAssignment, theory_context.",
+            "Output: adjusted array[BassNote] plus optional metadata flags.",
+            "Implement kick_collision_check by aligning BassNote.start_beat to drum steps (using tempo_bpm) and removing/moving notes on kick steps when mode demands.",
+            "Implement density_check: recompute per-bar note count and, if out of tolerance, prune lowest-scoring notes or add nearby high-score slots (call step_scoring output if needed).",
+            "Implement key_and_chord_check: verify all pitches are in key_scale; if chord_progression exists, treat chord tones as preferred and adjust any persistent dissonances.",
+            "Implement phrase_coherence_check for pattern_length_bars: prevent abrupt single-bar anomalies (e.g., enforce at least partial motif repetition).",
+            "Optionally apply microtiming humanization within small boundaries (e.g., ±5–10 ms when converted to time)."
+          ]
+        }
+      ]
+    },
+    "5_testing_and_validation": {
+      "description": "Create automated tests to ensure the implementation adheres to the spec and produces musically valid results.",
+      "test_categories": [
+        {
+          "name": "unit_tests_per_pipeline_step",
+          "examples": [
+            "drums_to_slot_grid: with a simple four-on-the-floor kick pattern, verify downbeats and kick flags are correct.",
+            "bass_mode_selection: with different drum_energy inputs, verify modes are chosen according to bass_mode_profiles.",
+            "step_scoring_and_selection: for a given grid and controls, ensure step count equals expected density and that hard kick-avoid rules are respected.",
+            "pitch_mapping_and_midi: verify all notes are in key and chord tones are favored on strong beats.",
+            "validation_and_post_processing: inject deliberate rule violations and assert they are corrected."
+          ]
+        },
+        {
+          "name": "property_based_tests",
+          "examples": [
+            "Across random drum patterns and control settings, ensure no out-of-key notes are produced (unless explicitly allowed as chromatic/passing with flags).",
+            "Ensure note density per bar always stays within an acceptable band around requested note_density.",
+            "Check that for 'sub_anchor' mode, >80% of notes are root or root-octave."
+          ]
+        },
+        {
+          "name": "golden_patterns",
+          "examples": [
+            "Define a fixed m4_drum_output and control config per genre (house, techno, trance, DnB).",
+            "Generate basslines and store their MIDI as golden references; alert when regressions occur after code changes."
+          ]
+        }
+      ]
+    },
+    "6_extensibility_hooks": {
+      "description": "Design the system so new modes, controls, or scoring features can be added by editing JSON, not core code.",
+      "requirements": [
+        "All mode-specific defaults and biases must live in spec.sections.system_integration.bass_mode_profiles.",
+        "The code should iterate over features and weights driven by configuration instead of assuming a fixed list.",
+        "Add an internal registry for scoring features that maps feature names to functions that compute them from SlotFeature/BarSlotGrid.",
+        "Permit external JSON overrides for recommended_controls and bass_mode_profiles at runtime."
+      ]
+    },
+    "7_llm_integration_hint": {
+      "description": "How another LLM or automation agent can use this guide.",
+      "instructions": [
+        "Treat this JSON as a formal contract: do not invent new fields when wiring the implementation.",
+        "When generating code, mirror the structure under 'instructions.4_pipeline_implementation.steps' as separate functions or class methods.",
+        "Use the embedded 'spec' and 'api_surface' as constant configuration data that can be modified without changing code.",
+        "Make sure all numeric thresholds and mappings (e.g., 'medium_high' -> 0.7) are in a single place so they can be tuned by future agents."
+      ]
+    },
+    "8_component_unit_tests": {
+      "description": "Detailed unit test plan for each major component to ensure correctness and musical behavior.",
+      "components": {
+        "resolve_controls": {
+          "goal": "Ensure control resolution order and qualitative-to-quantitative mapping produce correct ResolvedControls objects.",
+          "test_cases": [
+            {
+              "name": "applies_mode_defaults_then_user_overrides",
+              "given": [
+                "A style_or_genre_preset that sets some rhythm_controls.",
+                "A bass_mode_profile with default_control_targets differing from the preset.",
+                "User overrides that change a subset of rhythm_controls."
+              ],
+              "assert": [
+                "ResolvedControls starts from preset values.",
+                "Then applies bass_mode_profile defaults.",
+                "Then user overrides take precedence over both.",
+                "Numeric values match the configured qualitative mapping table (e.g., 'high' -> 0.8)."
+              ]
+            },
+            {
+              "name": "handles_missing_fields_with_safe_defaults",
+              "given": [
+                "Missing optional user_overrides.",
+                "Partial bass_mode_profile defaults."
+              ],
+              "assert": [
+                "ResolvedControls still contains all expected sub-objects (theory_controls, rhythm_controls, melody_controls, articulation_controls, pattern_variation_controls, variation_and_randomization_controls, drum_interaction_controls, mode_and_behavior_controls, output_controls, advanced_overrides).",
+                "Missing values are backfilled from presets or safe defaults without throwing errors."
+              ]
+            }
+          ]
+        },
+        "drums_to_slot_grid": {
+          "goal": "Correctly derive 16-step SlotFeature grids from drum patterns and compute energy metrics.",
+          "test_cases": [
+            {
+              "name": "four_on_the_floor_detection",
+              "given": [
+                "DrumBar with kicks at steps 0,4,8,12 and no other hits."
+              ],
+              "assert": [
+                "Slots 0,4,8,12 => has_kick == true; all others false.",
+                "Slots 0,4,8,12 => is_downbeat == true.",
+                "is_backbeat flags set correctly for beats 4 and 12.",
+                "drum_energy_bar equals 4 (or equivalent weighted energy)."
+              ]
+            },
+            {
+              "name": "gap_and_offbeat_labels",
+              "given": [
+                "DrumBar with hats on all offbeats (steps 2,6,10,14) and no kicks."
+              ],
+              "assert": [
+                "Steps 2,6,10,14 => has_hat == true, is_offbeat == true.",
+                "Steps without any hits => is_gap == true.",
+                "No slot is simultaneously marked has_kick and is_gap."
+              ]
+            }
+          ]
+        },
+        "bass_mode_selection": {
+          "goal": "Assign appropriate bass modes per bar based on drum energy and respect explicit overrides.",
+          "test_cases": [
+            {
+              "name": "energy_band_to_mode_mapping",
+              "given": [
+                "Three bars with drum_energy_bar values representing low, medium, and high bands.",
+                "No explicit user mode overrides."
+              ],
+              "assert": [
+                "Low-energy bar selected mode is in ['sub_anchor', 'root_fifth_driver'] depending on profile configuration.",
+                "Medium-energy bar selected mode in ['pocket_groove', 'root_fifth_driver'].",
+                "High-energy bar selected mode in ['rolling_ostinato', 'lead_ish']."
+              ]
+            },
+            {
+              "name": "explicit_mode_override_wins",
+              "given": [
+                "User requests 'offbeat_stabs' for all bars.",
+                "Bars have arbitrary energy values."
+              ],
+              "assert": [
+                "All BassModeAssignment.mode_name == 'offbeat_stabs' regardless of drum_energy_bar."
+              ]
+            }
+          ]
+        },
+        "step_scoring_and_selection": {
+          "goal": "Score steps according to mode and controls, and select a set that matches density and spacing rules.",
+          "test_cases": [
+            {
+              "name": "respects_note_density_target",
+              "given": [
+                "A BarSlotGrid with mixed drum hits.",
+                "ResolvedControls.rhythm_controls.note_density corresponding to N target hits."
+              ],
+              "assert": [
+                "Number of slots with selected == true is equal to target N within +/- 1 (if rounding is used)."
+              ]
+            },
+            {
+              "name": "sub_anchor_kick_avoid_behavior",
+              "given": [
+                "BarSlotGrid with four-on-the-floor kicks.",
+                "BassModeAssignment.mode_name == 'sub_anchor'.",
+                "step_scoring_bias.kick_avoid == 'strong'."
+              ],
+              "assert": [
+                "No selected slots share the same index as slots where has_kick == true."
+              ]
+            },
+            {
+              "name": "offbeat_stabs_offbeat_bias",
+              "given": [
+                "BarSlotGrid with clear downbeats and offbeats.",
+                "BassModeAssignment.mode_name == 'offbeat_stabs'."
+              ],
+              "assert": [
+                "Selected slots are predominantly is_offbeat == true.",
+                "Selected slots have is_gap == true when gap_preference is 'very_high'."
+              ]
+            }
+          ]
+        },
+        "pitch_mapping_and_midi": {
+          "goal": "Convert selected steps to in-key, mode-consistent MIDI notes with correct articulation.",
+          "test_cases": [
+            {
+              "name": "all_notes_in_key_when_no_chords",
+              "given": [
+                "key_scale == 'C_minor'.",
+                "No chord_progression.",
+                "Randomly selected ScoredSlot positions, all selected == true."
+              ],
+              "assert": [
+                "All BassNote.pitch values map to notes in C natural minor (C, D, Eb, F, G, Ab, Bb) within allowed octaves."
+              ]
+            },
+            {
+              "name": "root_emphasis_respected",
+              "given": [
+                "BassModeAssignment with root_note_emphasis set to very_high.",
+                "note_range_octaves == 1."
+              ],
+              "assert": [
+                "At least 80% of notes are root or root-octave (same degree)."
+              ]
+            },
+            {
+              "name": "interval_jump_magnitude_behavior",
+              "given": [
+                "Two scenarios: interval_jump_magnitude == 'small' and 'high'.",
+                "Same rhythm and same initial note."
+              ],
+              "assert": [
+                "For 'small', majority of neighbor intervals are <= 2 semitones.",
+                "For 'high', a significant fraction of neighbor intervals are >= 7 semitones (e.g., perfect fifths or octaves)."
+              ]
+            },
+            {
+              "name": "articulation_velocity_and_gate_respected",
+              "given": [
+                "velocity_normal == 80, velocity_accent == 110, accent_chance == 0.5.",
+                "gate_length configured to 0.5 step duration."
+              ],
+              "assert": [
+                "All note durations approximately equal half of step length (within numerical tolerance).",
+                "Velocity distribution shows a clear bimodal pattern around 80 and 110.",
+                "Proportion of accented notes is roughly 50% in long sequences."
+              ]
+            }
+          ]
+        },
+        "validation_and_post_processing": {
+          "goal": "Enforce musical and mix safety constraints after initial note generation.",
+          "test_cases": [
+            {
+              "name": "kick_collision_removal_in_sub_anchor",
+              "given": [
+                "BassModeAssignment.mode_name == 'sub_anchor'.",
+                "Initial BassNote array includes notes exactly aligned with kick steps."
+              ],
+              "assert": [
+                "After validation, no BassNote.start_beat aligns with a step where has_kick == true."
+              ]
+            },
+            {
+              "name": "density_adjustment_up_and_down",
+              "given": [
+                "Requested note_density implies a target of 4 notes per bar.",
+                "One test where initial BassNote count per bar is 8, and one where it's 1."
+              ],
+              "assert": [
+                "For the high-density case, notes are pruned down toward 4 based on lowest scoring or late additions.",
+                "For the low-density case, additional notes are added (by consulting spare high-score slots) toward 4."
+              ]
+            },
+            {
+              "name": "key_and_chord_correction",
+              "given": [
+                "theory_context.key_scale == 'G_major'.",
+                "chord_progression contains a bar of 'D7'.",
+                "Injected out-of-scale or non-chord notes in that bar."
+              ],
+              "assert": [
+                "Out-of-key notes are shifted to nearest in-scale notes if global policy is 'strict diatonic'.",
+                "If chord-aware, strong beat notes are moved to chord tones of D7 (D, F#, A, C) where possible."
+              ]
+            },
+            {
+              "name": "phrase_coherence_enforced",
+              "given": [
+                "pattern_length_bars == 4.",
+                "An artificially noisy bar 3 that does not share any rhythmic motif with bars 1, 2, or 4."
+              ],
+              "assert": [
+                "Validation step adjusts bar 3 toward patterns observed in previous bars (e.g., by reusing slot selections or motif-based constraints)."
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "spec": {
+    "module": "EDM_Bass_Generative_Research",
+    "purpose": "Provide structured insights for building a music-theory-aware generative bass engine for EDM, using MIDI output and static pattern generation.",
+    "sections": {
+      "music_theory_foundations": {
+        "role_of_bass": [
+          "Anchors harmony by emphasizing root notes.",
+          "Interlocks rhythmically with the kick for low-end cohesion.",
+          "Follows scale and chord progression to maintain musicality.",
+          "Combines rhythmic function with harmonic grounding."
+        ],
+        "theory_requirements": {
+          "key_awareness": "Engine must constrain output to a musical key/scale.",
+          "chord_awareness": "Engine should adapt bass notes to chord progressions when available.",
+          "diatonic_vs_chromatic": "Use diatonic notes primarily; allow controlled chromatic passing tones."
+        }
+      },
+      "variation_dimensions": {
+        "rhythmic_variation": {
+          "concept": "Expressive basslines use syncopation, subdivisions, and varied note placement.",
+          "techniques": [
+            "Syncopated off-beat hits",
+            "16th-note ghost notes",
+            "Triplet subdivisions",
+            "Swing and microtiming shifts"
+          ],
+          "interaction_with_kick": "Notes must leave space for or reinforce kick placement."
+        },
+        "melodic_variation": {
+          "concept": "Basslines explore chord tones and controlled scalar movement.",
+          "techniques": [
+            "Root + 3rd + 5th patterns",
+            "Scalar stepwise runs",
+            "Passing tones on weak beats",
+            "Octave jumps for accents"
+          ],
+          "expressive_controls": [
+            "Root note bias",
+            "Note range",
+            "Interval jump size"
+          ]
+        },
+        "dynamics_and_articulation": {
+          "elements": [
+            "Velocity accents",
+            "Ghost-velocity notes",
+            "Note length/gate control",
+            "Slides/portamento"
+          ],
+          "purpose": "Add human feel, groove contour, and stylistic variability."
+        }
+      },
+      "recommended_controls": {
+        "theory_controls": {
+          "key_scale": "Defines allowed pitch set.",
+          "chord_progression_input": "Optional but highly recommended for harmonic alignment."
+        },
+        "rhythm_controls": {
+          "rhythmic_complexity": "Straight vs syncopated.",
+          "note_density": "Number of notes per bar.",
+          "onbeat_offbeat_balance": "Blend between downbeat grid and syncopated layer.",
+          "pattern_length_bars": "1, 2, 4, or 8 bar patterns for phrase-level variation."
+        },
+        "melody_controls": {
+          "note_range_octaves": "How many octaves are permitted.",
+          "interval_jump_magnitude": "Stepwise vs leaping motion.",
+          "root_note_emphasis": "Probability weight for root note usage.",
+          "scale_degree_bias": "Adjust relative probability of 3rd, 5th, 7th, etc."
+        },
+        "articulation_controls": {
+          "velocity_normal": "Base velocity.",
+          "velocity_accent": "Accent velocity.",
+          "accent_chance": "Probability of accent notes.",
+          "gate_length": "Staccato vs legato feel.",
+          "slide_chance": "Percentage of note transitions that glide."
+        },
+        "pattern_variation_controls": {
+          "variation_amount": "Degree of random or semi-random alterations.",
+          "motif_transformations": [
+            "Rhythmic shift",
+            "Inversions",
+            "Transpositions",
+            "End-of-phrase fills"
+          ],
+          "pattern_memory_slots": "Multiple patterns can be stored and recalled."
+        }
+      },
+      "implementation_guidance": {
+        "algorithmic_foundations": {
+          "rule_based_constraints": [
+            "Root on strong beats",
+            "Chord tones on chord changes",
+            "Passing tones on weak beats",
+            "Velocity shaping for groove"
+          ],
+          "probabilistic_logic": [
+            "Weighted pitch selection",
+            "Stepwise vs leap prob distributions",
+            "Subdivision probabilities tied to rhythmic complexity"
+          ],
+          "motif_library_approach": {
+            "description": "Use curated bass fragments or rhythmic templates and fill them based on parameters.",
+            "benefit": "Predictable musicality with broad variation."
+          },
+          "ai_hybrid_approach": {
+            "aligned_latent_dimensions": [
+              "rhythm_complexity",
+              "note_density",
+              "note_range",
+              "interval_jump"
+            ],
+            "advantage": "Allows interpretable controls that map to musical changes."
+          }
+        },
+        "testing_recommendations": {
+          "genre_cases": [
+            "Techno: droning root-heavy patterns with syncopation.",
+            "House: off-beat rhythmic pulses and funkier melodic approaches.",
+            "Trance: octave jumps and scalar phrasing.",
+            "DNB: higher density and aggressive syncopation."
+          ],
+          "validation_requirements": [
+            "Key retention and diatonic correctness.",
+            "No kick-conflicting low-end overload.",
+            "Phrase-level variation without breaking motif continuity."
+          ]
+        }
+      },
+      "summary": {
+        "core_principles": [
+          "Ground patterns in music theory.",
+          "Expose interpretable controls for rhythm, melody, dynamics, and variation.",
+          "Generate patterns that feel human, expressive, and genre-appropriate.",
+          "Use rule-based + probabilistic generation for reliability and diversity."
+        ],
+        "outcome": "A flexible EDM bass MIDI generator that produces expressive, varied, and theoretically coherent basslines."
+      },
+      "system_integration": {
+        "description": "Maps the researched controls and theory concepts onto a concrete Beat Engine pipeline driven by m4 drum output and 16-step bar grids.",
+        "inputs_and_outputs": {
+          "inputs": {
+            "m4_drum_output": {
+              "description": "Per-bar drum pattern from an existing m4 engine with tracks for kick, hats, snare/clap.",
+              "expected_shape": "bars x 16 steps x {kick:boolean, hat:boolean, snare:boolean, velocity:int}",
+              "derived_features": [
+                "per-bar drum_energy score (based on total hits, subdivisions, accents)",
+                "per-step flags: is_kick, is_hat, is_snare, is_backbeat, is_gap",
+                "per-bar style hints: busy_vs_sparse, straight_vs_swingy (optional)"
+              ]
+            },
+            "theory_context": {
+              "key_scale": "Global key/scale of the song (e.g. A_minor, F_mixolydian).",
+              "chord_progression": "Optional list of chords aligned to bars or half-bars.",
+              "tempo": "BPM used for translating grid steps to musical time."
+            },
+            "global_controls": {
+              "style_or_genre_preset": "Preset that configures rhythms/melodies toward a target EDM subgenre.",
+              "recommended_controls_ref": "Same controls as defined under recommended_controls (theory_controls, rhythm_controls, melody_controls, articulation_controls, pattern_variation_controls)."
+            }
+          },
+          "outputs": {
+            "bass_midi_clip": "One or more MIDI clips containing bass notes aligned to the 16-step grid.",
+            "metadata": {
+              "mode_per_bar": "Which bass_mode was chosen for each bar.",
+              "scoring_debug": "Optional debugging info: step scores, rejected steps, validation adjustments.",
+              "control_snapshot": "Resolved control values (after presets, user overrides, and mode defaults)."
+            }
+          }
+        },
+        "pipeline": {
+          "step_1_slot_grid_from_drums": {
+            "name": "drums_to_slot_grid",
+            "goal": "Convert m4 drum output into a 16-step slot grid with rhythm-aware features.",
+            "operations": [
+              "For each bar, create 16 slots indexed 0–15.",
+              "Mark per-slot booleans: has_kick, has_hat, has_snare_clap.",
+              "Derive musical labels: is_downbeat, is_backbeat, is_offbeat, is_gap (no drums).",
+              "Optionally compute local_energy per slot (e.g. sum of velocities or number of simultaneous hits)."
+            ],
+            "integration_with_controls": {
+              "rhythm_controls": [
+                "onbeat_offbeat_balance uses is_downbeat / is_offbeat flags.",
+                "rhythmic_complexity interacts with how many offbeat slots become eligible."
+              ]
+            }
+          },
+          "step_2_select_bass_mode": {
+            "name": "bass_mode_selection",
+            "goal": "Choose a high-level bass behavior per bar, based on drum energy and tags.",
+            "inputs": [
+              "per-bar drum_energy from step_1_slot_grid_from_drums",
+              "style_or_genre_preset",
+              "optional user-specified mode overrides"
+            ],
+            "bass_modes": [
+              "sub_anchor",
+              "root_fifth_driver",
+              "pocket_groove",
+              "rolling_ostinato",
+              "offbeat_stabs",
+              "lead_ish"
+            ],
+            "selection_logic": [
+              "Map drum_energy to a coarse energy band (low, medium, high).",
+              "Within each band, choose a suitable bass_mode (e.g. low energy → sub_anchor, medium → pocket_groove, high → rolling_ostinato or lead_ish).",
+              "Allow explicit user override to force a particular bass_mode.",
+              "Resolve a per-bar mode schedule for the entire generated region."
+            ],
+            "integration_with_controls": "Each bass_mode defines defaults/constraints for rhythm_controls, melody_controls, articulation_controls and pattern_variation_controls (see bass_mode_profiles)."
+          },
+          "step_3_score_and_select_steps": {
+            "name": "step_scoring_and_selection",
+            "goal": "Score each of the 16 slots per bar for rhythmic suitability and choose a subset of steps matching mode density and kick-avoid rules.",
+            "scoring_features_per_slot": [
+              "proximity_to_kick (penalize or encourage based on mode)",
+              "conflict_with_kick (hard penalty when mode demands clean low-end)",
+              "sync_with_hat (reward or penalty depending on groove)",
+              "is_downbeat_or_backbeat (for anchor modes)",
+              "offbeat_syncopation_score (for groove/ostinato modes)",
+              "drum_energy_local (busier regions may support denser bass)",
+              "pattern_symmetry (preference for repeated motifs and mirrored shapes)"
+            ],
+            "integration_with_controls": {
+              "note_density": "Transforms into a target count of selected slots per bar.",
+              "rhythmic_complexity": "Adjusts weights for offbeat_syncopation_score vs. downbeat/backbeat anchors.",
+              "onbeat_offbeat_balance": "Mixing factor between downbeat/backbeat scores and offbeat/syncopation scores.",
+              "pattern_length_bars": "Selection aims to create consistent motifs across bars of the phrase while still allowing small deviations."
+            },
+            "selection_algorithm": [
+              "Compute score(slot_i) for i in 0..15 using weighted sum of scoring_features_per_slot.",
+              "Apply bass_mode-specific masks (e.g. sub_anchor forbids hit on same step as kick; offbeat_stabs prefers pure gaps with strong offbeat labels).",
+              "Sort slots by final score and pick the top N where N comes from note_density and bass_mode_profiles density range.",
+              "Ensure minimum rhythmic spacing constraints (e.g. no two bass hits closer than one 16th for some modes)."
+            ]
+          },
+          "step_4_map_steps_to_notes_and_write_midi": {
+            "name": "pitch_mapping_and_midi",
+            "goal": "Map selected rhythmic slots to scale degrees and octaves based on key, chords, and melodic controls; then emit MIDI notes.",
+            "pitch_selection_logic": {
+              "base_data": [
+                "current key_scale and chord for the bar (if available).",
+                "melody_controls: note_range_octaves, interval_jump_magnitude, root_note_emphasis, scale_degree_bias.",
+                "bass_mode_preferences (e.g. sub_anchor favors root-only, lead_ish allows broader scale degrees)."
+              ],
+              "per-slot_process": [
+                "Determine target scale degree class: root, fifth, octave root, or extended degree (b7, 9, etc.) using root_note_emphasis and scale_degree_bias.",
+                "Use interval_jump_magnitude to choose whether to stay near previous note or leap to a distant degree.",
+                "Clamp to allowed note_range_octaves, optionally pushing dramatic leaps to phrase boundaries or high-energy bars.",
+                "Optionally enforce chord-tone preference on strong beats and allow passing tones on weak/offbeat slots."
+              ]
+            },
+            "midi_articulation_logic": {
+              "velocity": [
+                "Draw base velocity from velocity_normal.",
+                "Promote some slots to velocity_accent according to accent_chance and/or mode-specific patterns (e.g. accent offbeats in pocket_groove)."
+              ],
+              "gate_and_slide": [
+                "Set note length using gate_length (scaled by step duration at current tempo).",
+                "Apply slide_chance by overlapping consecutive notes and marking them as legato/glide in the synth domain."
+              ]
+            },
+            "output": "For each selected slot, emit a MIDI note event (pitch, start_time, duration, velocity), with optional per-note metadata for slide/accent."
+          },
+          "step_5_validate_and_adjust": {
+            "name": "validation_and_post_processing",
+            "goal": "Ensure generated bass MIDI is mix-safe, matches requested densities, and stays in key.",
+            "validation_checks": [
+              "Kick_collision_check: if mode requires kick avoidance, remove or move bass notes that exactly align with strong kick hits.",
+              "Density_check: recompute per-bar density; if too high or too low relative to note_density and bass_mode_profiles, prune or add notes using nearby slots by score.",
+              "Key_and_chord_check: ensure all notes fit key_scale; if chord_progression is present, adjust any dissonant notes (unless explicitly allowed passing tones).",
+              "Phrase_coherence_check: avoid abrupt, unmotivated changes in pattern within a pattern_length_bars phrase."
+            ],
+            "post_processing_actions": [
+              "Apply small random humanization within allowed microtiming range (optional).",
+              "Tag bars or notes with warnings when heavy correction was needed (useful for debugging and training future models)."
+            ]
+          }
+        },
+        "bass_mode_profiles": {
+          "sub_anchor": {
+            "description": "Low, solid sub lines that mostly reinforce the root on strong beats, with minimal movement.",
+            "default_control_targets": {
+              "rhythm_controls": {
+                "rhythmic_complexity": "low",
+                "note_density": "very_low",
+                "onbeat_offbeat_balance": "onbeat_heavy",
+                "pattern_length_bars": 1
+              },
+              "melody_controls": {
+                "note_range_octaves": 1,
+                "interval_jump_magnitude": "small",
+                "root_note_emphasis": "very_high",
+                "scale_degree_bias": "root_and_octave_only"
+              },
+              "articulation_controls": {
+                "velocity_normal": "medium",
+                "velocity_accent": "slightly_higher",
+                "accent_chance": "low",
+                "gate_length": "long",
+                "slide_chance": "low"
+              }
+            },
+            "step_scoring_bias": {
+              "kick_avoid": "strong",
+              "downbeat_priority": "very_high",
+              "offbeat_syncopation": "very_low"
+            }
+          },
+          "root_fifth_driver": {
+            "description": "Classic EDM driver patterns emphasizing root and fifth, moderate movement and energy.",
+            "default_control_targets": {
+              "rhythm_controls": {
+                "rhythmic_complexity": "medium",
+                "note_density": "medium",
+                "onbeat_offbeat_balance": "balanced",
+                "pattern_length_bars": 2
+              },
+              "melody_controls": {
+                "note_range_octaves": 1,
+                "interval_jump_magnitude": "medium",
+                "root_note_emphasis": "high",
+                "scale_degree_bias": "root_and_fifth_focus"
+              },
+              "articulation_controls": {
+                "velocity_normal": "medium",
+                "velocity_accent": "higher",
+                "accent_chance": "medium",
+                "gate_length": "medium",
+                "slide_chance": "low"
+              }
+            },
+            "step_scoring_bias": {
+              "kick_avoid": "medium",
+              "downbeat_priority": "high",
+              "offbeat_syncopation": "medium"
+            }
+          },
+          "pocket_groove": {
+            "description": "Groovy patterns that sit in the pocket with drums, focusing on syncopation and interaction with hats/snare.",
+            "default_control_targets": {
+              "rhythm_controls": {
+                "rhythmic_complexity": "medium_high",
+                "note_density": "medium_high",
+                "onbeat_offbeat_balance": "offbeat_favored",
+                "pattern_length_bars": 2
+              },
+              "melody_controls": {
+                "note_range_octaves": 1,
+                "interval_jump_magnitude": "small_medium",
+                "root_note_emphasis": "medium",
+                "scale_degree_bias": "root_third_fifth_mix"
+              },
+              "articulation_controls": {
+                "velocity_normal": "medium",
+                "velocity_accent": "significantly_higher",
+                "accent_chance": "high",
+                "gate_length": "short_medium",
+                "slide_chance": "medium"
+              }
+            },
+            "step_scoring_bias": {
+              "kick_avoid": "medium_strong",
+              "downbeat_priority": "medium",
+              "offbeat_syncopation": "high",
+              "hat_sync": "high"
+            }
+          },
+          "rolling_ostinato": {
+            "description": "Continuous rolling bass patterns (often 1/8 or 1/16 based) that drive the track forward.",
+            "default_control_targets": {
+              "rhythm_controls": {
+                "rhythmic_complexity": "high",
+                "note_density": "high",
+                "onbeat_offbeat_balance": "balanced_or_offbeat",
+                "pattern_length_bars": 4
+              },
+              "melody_controls": {
+                "note_range_octaves": 2,
+                "interval_jump_magnitude": "medium_high",
+                "root_note_emphasis": "medium",
+                "scale_degree_bias": "scale_stepwise_bias"
+              },
+              "articulation_controls": {
+                "velocity_normal": "medium_high",
+                "velocity_accent": "high",
+                "accent_chance": "medium",
+                "gate_length": "medium_long",
+                "slide_chance": "medium_high"
+              }
+            },
+            "step_scoring_bias": {
+              "kick_avoid": "medium",
+              "downbeat_priority": "medium",
+              "offbeat_syncopation": "medium_high"
+            }
+          },
+          "offbeat_stabs": {
+            "description": "Sparse, punchy stabs placed mostly on offbeats or gaps in the drums.",
+            "default_control_targets": {
+              "rhythm_controls": {
+                "rhythmic_complexity": "medium",
+                "note_density": "low",
+                "onbeat_offbeat_balance": "strongly_offbeat",
+                "pattern_length_bars": 1
+              },
+              "melody_controls": {
+                "note_range_octaves": 1,
+                "interval_jump_magnitude": "medium",
+                "root_note_emphasis": "high",
+                "scale_degree_bias": "root_and_color_tones"
+              },
+              "articulation_controls": {
+                "velocity_normal": "high",
+                "velocity_accent": "very_high",
+                "accent_chance": "high",
+                "gate_length": "short",
+                "slide_chance": "low"
+              }
+            },
+            "step_scoring_bias": {
+              "kick_avoid": "very_strong",
+              "downbeat_priority": "low",
+              "offbeat_syncopation": "very_high",
+              "gap_preference": "very_high"
+            }
+          },
+          "lead_ish": {
+            "description": "Bass that behaves almost like a lead: melodic, wide range, and expressive.",
+            "default_control_targets": {
+              "rhythm_controls": {
+                "rhythmic_complexity": "high",
+                "note_density": "medium_high",
+                "onbeat_offbeat_balance": "balanced",
+                "pattern_length_bars": 4
+              },
+              "melody_controls": {
+                "note_range_octaves": 2,
+                "interval_jump_magnitude": "high",
+                "root_note_emphasis": "medium_low",
+                "scale_degree_bias": "all_diatonic_degrees_plus_color"
+              },
+              "articulation_controls": {
+                "velocity_normal": "medium",
+                "velocity_accent": "high",
+                "accent_chance": "medium_high",
+                "gate_length": "expressive_varied",
+                "slide_chance": "high"
+              }
+            },
+            "step_scoring_bias": {
+              "kick_avoid": "medium",
+              "downbeat_priority": "medium",
+              "offbeat_syncopation": "high"
+            }
+          }
+        },
+        "parameter_wiring_notes": {
+          "control_resolution_order": [
+            "Start from style_or_genre_preset.",
+            "Apply bass_mode_profiles defaults for the selected mode.",
+            "Apply user/global overrides from recommended_controls.",
+            "Clamp and normalize into final control values used by pipeline."
+          ],
+          "llm_usage_hint": "An LLM agent can reason over this JSON to decide modes, tweak control targets, or generate code that implements the described pipeline in a specific language or environment."
+        }
+      }
+    }
+  },
+  "api_surface": {
+    "config_object_name": "BassGeneratorConfig",
+    "description": "Public configuration schema for the bass generator module. All knobs here are for bass generation only, reacting to m4 drum output but not modifying the drum engine.",
+    "control_groups": {
+      "theory_controls": {
+        "description": "Music-theoretical knobs for scale, chords, and tonal behavior.",
+        "params": {
+          "key_scale": { "type": "string", "example": "A_minor" },
+          "chord_progression": { "type": "array_or_null", "description": "Matches theory_context.chord_progression if provided externally." },
+          "harmonic_strictness": { "type": "float_0_1", "default": 0.9 },
+          "chord_tone_priority": { "type": "float_0_1", "default": 0.8 },
+          "minorness": { "type": "float_0_1", "default": 0.5 }
+        }
+      },
+      "rhythm_controls": {
+        "description": "Controls for rhythm, density, syncopation, and phrase length of the bassline.",
+        "params": {
+          "rhythmic_complexity": { "type": "float_0_1", "default": 0.5 },
+          "note_density": { "type": "float_0_1", "default": 0.5 },
+          "onbeat_offbeat_balance": { "type": "float_-1_1", "default": 0.0 },
+          "kick_interaction_mode": { "type": "enum", "values": ["avoid_kick", "reinforce_kick", "balanced"], "default": "avoid_kick" },
+          "swing_amount": { "type": "float_0_1", "default": 0.0 },
+          "groove_depth": { "type": "float_0_1", "default": 0.5 },
+          "use_triplets": { "type": "boolean", "default": false },
+          "pattern_length_bars": { "type": "integer", "default": 2 }
+        }
+      },
+      "melody_controls": {
+        "description": "Controls for pitch range, root bias, and interval behavior.",
+        "params": {
+          "note_range_octaves": { "type": "integer", "default": 1 },
+          "base_octave": { "type": "integer", "default": 2 },
+          "root_note_emphasis": { "type": "float_0_1", "default": 0.8 },
+          "scale_degree_bias": { "type": "object", "description": "Map degree_name -> weight (e.g., {\"1\":1.0,\"5\":0.7,\"b7\":0.3})." },
+          "interval_jump_magnitude": { "type": "float_0_1", "default": 0.4 },
+          "melodic_intensity": { "type": "float_0_1", "default": 0.5 }
+        }
+      },
+      "articulation_controls": {
+        "description": "Controls for velocity, gate length, accents, slides and humanization.",
+        "params": {
+          "velocity_normal": { "type": "int_0_127", "default": 80 },
+          "velocity_accent": { "type": "int_0_127", "default": 110 },
+          "accent_chance": { "type": "float_0_1", "default": 0.3 },
+          "accent_pattern_mode": { "type": "enum", "values": ["random", "offbeat_focused", "downbeat_focused"], "default": "offbeat_focused" },
+          "gate_length": { "type": "float_0_1", "default": 0.5 },
+          "tie_notes": { "type": "boolean", "default": false },
+          "slide_chance": { "type": "float_0_1", "default": 0.1 },
+          "humanize_timing": { "type": "float_0_1", "default": 0.1 },
+          "humanize_velocity": { "type": "float_0_1", "default": 0.1 }
+        }
+      },
+      "variation_and_randomization_controls": {
+        "description": "Controls governing variation, regeneration, and randomization.",
+        "params": {
+          "variation_amount": { "type": "float_0_1", "default": 0.5 },
+          "regeneration_mode": { "type": "enum", "values": ["one_shot", "infinity_mode"], "default": "one_shot" },
+          "notes_to_change_per_regen": { "type": "integer", "default": 4 },
+          "randomize_pitch": { "type": "boolean", "default": true },
+          "randomize_rhythm": { "type": "boolean", "default": true },
+          "randomize_velocity": { "type": "boolean", "default": true },
+          "randomize_density": { "type": "boolean", "default": true },
+          "lock_steps": { "type": "array_int_0_15", "default": [] },
+          "lock_notes": { "type": "array", "description": "Array of protected pitches or degrees (e.g., [\"1\",\"5\",60]).", "default": [] }
+        }
+      },
+      "drum_interaction_controls": {
+        "description": "How strongly the bassline reacts to drum patterns.",
+        "params": {
+          "kick_avoid_strength": { "type": "float_0_1", "default": 0.8 },
+          "snare_backbeat_preference": { "type": "float_0_1", "default": 0.5 },
+          "hat_sync_strength": { "type": "float_0_1", "default": 0.5 }
+        }
+      },
+      "mode_and_behavior_controls": {
+        "description": "High-level control over bass behavior over time.",
+        "params": {
+          "bass_mode_schedule": {
+            "type": "object",
+            "fields": {
+              "strategy": { "type": "enum", "values": ["auto_from_drums", "fixed_mode", "per_bar_explicit"], "default": "auto_from_drums" },
+              "fixed_mode": { "type": "string_or_null", "values": ["sub_anchor", "root_fifth_driver", "pocket_groove", "rolling_ostinato", "offbeat_stabs", "lead_ish", null] },
+              "per_bar_modes": { "type": "array_or_null", "description": "If strategy == per_bar_explicit, array length == bars, with entries from bass_modes." }
+            }
+          }
+        }
+      },
+      "output_controls": {
+        "description": "Controls for the shape of the returned data.",
+        "params": {
+          "max_notes_per_bar": { "type": "integer", "default": 16 },
+          "return_debug_metadata": { "type": "boolean", "default": false },
+          "pattern_memory_slot": { "type": "integer_or_null", "default": null }
+        }
+      },
+      "advanced_overrides": {
+        "description": "Expert-only overrides for internal scoring.",
+        "params": {
+          "step_scoring_weights": { "type": "object_or_null", "description": "Overrides for scoring feature weights (e.g., {\"proximity_to_kick\":0.5})." },
+          "mode_profile_overrides": { "type": "object_or_null", "description": "Per-mode overrides for default_control_targets and step_scoring_bias." }
+        }
+      }
+    }
+  },
+  "api_to_runtime_mapping": {
+    "description": "Maps public API knobs to internal pipeline components.",
+    "groups": [
+      {
+        "group": "theory_controls",
+        "affects": ["Step4_PitchMapping", "Step5_Validation"],
+        "notes": [
+          "key_scale and chord_progression set allowed pitch classes and chord-tone preferences.",
+          "harmonic_strictness and chord_tone_priority determine how strongly non-chord tones are penalized.",
+          "minorness shifts scale_degree_bias toward minor color tones."
+        ]
+      },
+      {
+        "group": "rhythm_controls",
+        "affects": ["Step3_ScoringAndSelection", "PhraseLayoutEngine", "Step1 labeling"],
+        "notes": [
+          "rhythmic_complexity biases scoring toward syncopation and dense subdivisions.",
+          "note_density maps directly to number of selected slots.",
+          "onbeat_offbeat_balance mixes weights for downbeat/backbeat vs offbeat features.",
+          "kick_interaction_mode and swing_amount/groove_depth influence final feel.",
+          "pattern_length_bars defines phrase length for motif reuse and validation."
+        ]
+      },
+      {
+        "group": "melody_controls",
+        "affects": ["Step4_PitchMapping"],
+        "notes": [
+          "note_range_octaves and base_octave bound the pitch range for bass notes.",
+          "root_note_emphasis and scale_degree_bias govern which degrees are most likely selected.",
+          "interval_jump_magnitude and melodic_intensity control the balance between stepwise and leaping lines."
+        ]
+      },
+      {
+        "group": "articulation_controls",
+        "affects": ["Step4_MidiArticulation", "Step5_Validation"],
+        "notes": [
+          "velocity_normal/velocity_accent and accent_chance drive velocity distributions.",
+          "accent_pattern_mode biases accent placement in time.",
+          "gate_length, tie_notes, slide_chance control note length and legato.",
+          "humanize_timing and humanize_velocity apply final random perturbations."
+        ]
+      },
+      {
+        "group": "variation_and_randomization_controls",
+        "affects": ["Step3_ScoringAndSelection", "Step4_PitchMapping", "RegenerationLoop"],
+        "notes": [
+          "variation_amount sets overall aggressiveness of deviation from base motifs.",
+          "regeneration_mode and notes_to_change_per_regen define how patterns evolve over time.",
+          "randomize_* flags gate whether each dimension can be altered on reroll.",
+          "lock_steps and lock_notes enforce immutability constraints for selective regeneration."
+        ]
+      },
+      {
+        "group": "drum_interaction_controls",
+        "affects": ["Step3_ScoringAndSelection", "Step5_Validation"],
+        "notes": [
+          "kick_avoid_strength modifies penalties for aligning bass hits with kicks.",
+          "snare_backbeat_preference increases scores for notes near snare backbeats.",
+          "hat_sync_strength increases scores for notes aligned with hi-hats, especially in groove modes."
+        ]
+      },
+      {
+        "group": "mode_and_behavior_controls",
+        "affects": ["Step2_ModeSelection", "ControlResolutionLayer"],
+        "notes": [
+          "bass_mode_schedule determines which bass_mode_profile applies per bar.",
+          "Selected mode feeds default_control_targets into resolve_controls."
+        ]
+      },
+      {
+        "group": "output_controls",
+        "affects": ["Step5_Validation", "ResultAssembler"],
+        "notes": [
+          "max_notes_per_bar is enforced after density check.",
+          "return_debug_metadata toggles inclusion of scoring_debug and control_snapshot.",
+          "pattern_memory_slot indexes storage or retrieval from a pattern memory bank."
+        ]
+      },
+      {
+        "group": "advanced_overrides",
+        "affects": ["Step3_ScoringAndSelection", "ModeProfileLoader"],
+        "notes": [
+          "step_scoring_weights overrides default weights for scoring_features_per_slot.",
+          "mode_profile_overrides allows custom tuning of per-mode control targets and step-scoring biases."
+        ]
+      }
+    ]
+  },
+  "documentation_updates": {
+    "description": "Instructions for updating human-facing documentation based on this mega-spec.",
+    "api_docs": {
+      "targets": [
+        "docs/api/bass_generator_api.md",
+        "docs/api/bass_generator_config_schema.md"
+      ],
+      "instructions": [
+        "Generate a 'Bass Generator API Overview' section using top_level_api.entrypoints and api_surface.control_groups.",
+        "For each control group in api_surface.control_groups, render a table with param name, type, default, and short purpose.",
+        "Include examples of minimal and advanced BassGeneratorConfig JSON snippets.",
+        "Add a 'Runtime Mapping' section that renders api_to_runtime_mapping.groups as a table: API group -> pipeline stages -> notes."
+      ]
+    },
+    "core_algorithm_docs": {
+      "targets": [
+        "docs/algorithms/bass_generator_core.md",
+        "docs/algorithms/bass_modes_and_scoring.md"
+      ],
+      "instructions": [
+        "Use spec.sections.system_integration.pipeline as the canonical description of the 5-step pipeline.",
+        "For each pipeline step, annotate which api_surface control_groups influence it, based on api_to_runtime_mapping.",
+        "Render spec.sections.system_integration.bass_mode_profiles into a human-readable table of modes, default targets, and descriptive behavior.",
+        "Highlight that the bass generator is a separate module that only consumes m4 drum output, not controlling drums."
+      ]
+    },
+    "testing_docs": {
+      "targets": [
+        "docs/tests/bass_generator_test_plan.md"
+      ],
+      "instructions": [
+        "Render instructions.5_testing_and_validation and instructions.8_component_unit_tests into a readable test plan.",
+        "Group test examples by pipeline stage and by behavior dimension (theory, rhythm, melody, articulation, validation).",
+        "Add a section describing golden pattern tests for different genres using fixed seeds and configs."
+      ]
+    }
+  },
+  "integration_plan": {
+    "description": "High-level plan for integrating this bass generator into the codebase.",
+    "phases": [
+      {
+        "name": "Phase 1 - Core Runtime Wiring",
+        "depends_on": [],
+        "includes": [
+          "instructions.2_define_core_data_structures",
+          "instructions.3_control_resolution_layer",
+          "instructions.4_pipeline_implementation"
+        ],
+        "done_when": [
+          "End-to-end generation works from m4_drum_output + theory_context + global_controls -> bass_midi_clip.",
+          "All pipeline steps consume ResolvedControls instead of raw API inputs."
+        ]
+      },
+      {
+        "name": "Phase 2 - Public API Layer",
+        "depends_on": ["Phase 1 - Core Runtime Wiring"],
+        "includes": [
+          "top_level_api.entrypoints",
+          "api_surface.control_groups"
+        ],
+        "done_when": [
+          "generate_bass_midi_from_drums is stable and documented.",
+          "BassGeneratorConfig JSON schema is published and validated."
+        ]
+      },
+      {
+        "name": "Phase 3 - Tests & Golden Patterns",
+        "depends_on": ["Phase 1 - Core Runtime Wiring"],
+        "includes": [
+          "instructions.5_testing_and_validation",
+          "instructions.8_component_unit_tests"
+        ],
+        "done_when": [
+          "Unit tests cover each pipeline step.",
+          "Property-based tests and golden patterns run in CI and pass."
+        ]
+      },
+      {
+        "name": "Phase 4 - Documentation",
+        "depends_on": ["Phase 2 - Public API Layer", "Phase 3 - Tests & Golden Patterns"],
+        "includes": [
+          "documentation_updates.api_docs",
+          "documentation_updates.core_algorithm_docs",
+          "documentation_updates.testing_docs"
+        ],
+        "done_when": [
+          "API docs, core algorithm docs, and test plan docs are generated and reviewed.",
+          "Docs clearly mark this module as 'Bass Pattern Generator' and distinguish it from drum modules."
+        ]
+      }
+    ]
+  }
+}
