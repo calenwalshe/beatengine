@@ -14,7 +14,7 @@ pip3 install -r requirements.txt
 python3 app.py
 ```
 
-The server will start on `http://localhost:5000`.
+The server will start on `http://localhost:5001` (CORS enabled for the web UI).
 
 ## API Endpoints
 
@@ -32,9 +32,30 @@ Request body:
     "tempo_bpm": 130.0
   },
   "controls": {
+    "mode_and_behavior_controls": {
+      "strategy": "auto_from_drums",
+      "fixed_mode": null
+    },
     "rhythm_controls": {
       "note_density": 0.5,
-      "rhythmic_complexity": 0.65
+      "rhythmic_complexity": 0.65,
+      "swing_amount": 0.1,
+      "groove_depth": 0.4,
+      "kick_interaction_mode": "avoid_kick"
+    },
+    "melody_controls": {
+      "root_note_emphasis": 0.7,
+      "interval_jump_magnitude": 0.5,
+      "melodic_intensity": 0.6,
+      "base_octave": 2
+    },
+    "articulation_controls": {
+      "accent_chance": 0.35,
+      "accent_pattern_mode": "offbeat_focused",
+      "gate_length": 0.5,
+      "tie_notes": false,
+      "humanize_timing": 0.1,
+      "humanize_velocity": 0.1
     }
   }
 }
@@ -125,3 +146,14 @@ web_ui/backend/
 - `rolling_energy` - High-energy rolling bass line
 - `minimal_deep` - Sparse, hypnotic with deep sub-focus
 - `hard_driving` - Aggressive, dense with kick reinforcement
+
+## Web UI (Standalone HTML) Payload Summary
+
+The standalone UI (`web_ui/simple_ui.html`) sends a focused subset of controls into the API:
+
+- `theory_context`: `key_scale`, `tempo_bpm`
+- `mode_and_behavior_controls`: `strategy` (`auto_from_drums` | `fixed_mode`), `fixed_mode` (`sub_anchor`, `root_fifth_driver`, `pocket_groove`, `rolling_ostinato`, `offbeat_stabs`, `lead_ish`)
+- `rhythm_controls`: `note_density`, `rhythmic_complexity`, `swing_amount`, `groove_depth`, `kick_interaction_mode`
+- `melody_controls`: `root_note_emphasis`, `interval_jump_magnitude`, `melodic_intensity`, `base_octave`
+
+These map directly to `bass_v2_pipeline` (slot selection, mode selection, timing swing/groove, and pitch mapping).

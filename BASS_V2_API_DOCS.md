@@ -467,6 +467,22 @@ Ideal for: Melodic, expressive bass lines
 
 ## Examples
 
+### Web UI Payload (Standalone HTML)
+
+The standalone UI at `web_ui/simple_ui.html` sends this subset of controls to `/api/generate`:
+
+- `theory_context`: `key_scale`, `tempo_bpm`
+- `mode_and_behavior_controls`: `strategy` (`auto_from_drums` | `fixed_mode`), `fixed_mode` (`sub_anchor`, `root_fifth_driver`, `pocket_groove`, `rolling_ostinato`, `offbeat_stabs`, `lead_ish`)
+- `rhythm_controls`: `note_density`, `rhythmic_complexity`, `swing_amount`, `groove_depth`, `kick_interaction_mode`
+- `melody_controls`: `root_note_emphasis`, `interval_jump_magnitude`, `melodic_intensity`, `base_octave`
+
+These map into `bass_v2_pipeline` as:
+- Mode selection (`mode_and_behavior_controls`) → `mode_per_bar` in `clip.metadata`
+- Rhythm (density/complexity/kick interaction) → slot scoring/selection; swing/groove → note start times
+- Melody (root emphasis / interval jump / intensity / base octave) → scale degree choice, leap size, register
+
+The full API surface remains available for custom clients (see control reference below); the UI focuses on the most audible controls.
+
 ### Example 1: Basic House Pattern
 
 ```python

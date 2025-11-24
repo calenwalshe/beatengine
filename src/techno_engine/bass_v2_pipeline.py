@@ -255,46 +255,86 @@ def pitch_mapping_and_midi(
     controls = assignment.resolved_controls
     melody = controls.melody_controls
     articulation = controls.articulation_controls
+    rhythm = controls.rhythm_controls
 
     root_midi, scale_intervals = parse_key_scale(theory_context.key_scale)
+    # Shift base octave (slider 1-3) relative to default octave 2 root map
+    root_midi += int((melody.base_octave - 2) * 12)
 
     notes: List[BassNote] = []
     selected_slots = [ss for ss in scored_slots if ss.selected]
 
     for ss in selected_slots:
         # Select scale degree
+        chose_root = False
         if rng.random() < melody.root_note_emphasis:
             # Root note
             degree_offset = 0
+            chose_root = True
         else:
-            # Choose from scale
-            degree_offset = rng.choice(scale_intervals)
+            # Choose from scale with melodic intensity bias toward wider leaps
+            if melody.melodic_intensity > 0.65 and len(scale_intervals) > 4:
+                degree_offset = rng.choice(scale_intervals[2:])  # favor upper degrees
+            else:
+                degree_offset = rng.choice(scale_intervals)
 
         # Apply interval jump magnitude
-        if prev_note and rng.random() > melody.interval_jump_magnitude:
+        if prev_note and not chose_root and rng.random() > melody.interval_jump_magnitude:
             # Stay close to previous note (stepwise)
             degree_offset = scale_intervals[rng.randint(0, min(2, len(scale_intervals) - 1))]
+        elif prev_note and not chose_root and melody.melodic_intensity > 0.5:
+            # Allow bigger leaps when intensity is high
+            leap_choices = scale_intervals[-3:] if len(scale_intervals) > 3 else scale_intervals
+            degree_offset = rng.choice(leap_choices)
 
         # Calculate pitch within octave range
         base_pitch = root_midi + degree_offset
-        octave_shift = rng.randint(0, melody.note_range_octaves)
+        max_octaves = max(0, melody.note_range_octaves - 1)
+        # Higher melodic intensity increases chance of jumping up octaves
+        if max_octaves > 0 and rng.random() < melody.melodic_intensity:
+            octave_shift = rng.randint(0, max_octaves)
+        else:
+            octave_shift = rng.randint(0, max(0, max_octaves - 1))
         pitch = base_pitch + (octave_shift * 12)
 
         # Clamp to reasonable bass range
         pitch = max(28, min(60, pitch))
 
-        # Velocity (with accents)
-        if rng.random() < articulation.accent_chance:
-            velocity = articulation.velocity_accent
-        else:
-            velocity = articulation.velocity_normal
+        # Velocity with accent patterns and humanization
+        accent_bias = articulation.accent_chance
+        if articulation.accent_pattern_mode == "offbeat_focused":
+            accent_bias = articulation.accent_chance + (0.35 if ss.slot.is_offbeat else -0.1)
+        elif articulation.accent_pattern_mode == "downbeat_focused":
+            accent_bias = articulation.accent_chance + (0.35 if ss.slot.is_downbeat or ss.slot.is_backbeat else -0.05)
+
+        use_accent = rng.random() < max(0.0, min(1.0, accent_bias))
+        velocity = articulation.velocity_accent if use_accent else articulation.velocity_normal
+
+        if articulation.humanize_velocity > 0:
+            jitter = int((rng.random() - 0.5) * 20 * articulation.humanize_velocity)
+            velocity = max(1, min(127, velocity + jitter))
 
         # Duration (gate length)
         step_duration = 0.25  # 16th note = 0.25 beats
         duration = step_duration * articulation.gate_length
 
-        # Start time (in beats)
+        # Start time (in beats) with swing, groove, and humanization
         start_beat = assignment.bar_index * 4.0 + (ss.slot.index * step_duration)
+
+        if rhythm.swing_amount > 0 and ss.slot.index % 2 == 1:
+            # Push late on off-16ths by up to half a 16th note
+            start_beat += rhythm.swing_amount * (step_duration * 0.5)
+
+        if rhythm.groove_depth > 0:
+            if ss.slot.is_offbeat:
+                start_beat += rhythm.groove_depth * 0.04  # subtle late push
+            elif ss.slot.is_downbeat:
+                start_beat -= rhythm.groove_depth * 0.02
+
+        if articulation.humanize_timing > 0:
+            jitter = (rng.random() - 0.5) * 0.06 * articulation.humanize_timing
+            start_beat += jitter
+            start_beat = max(assignment.bar_index * 4.0, start_beat)
 
         note = BassNote(
             pitch=pitch,
@@ -303,6 +343,15 @@ def pitch_mapping_and_midi(
             velocity=velocity,
             metadata={"slot_index": ss.slot.index, "score": ss.score},
         )
+        # Tie notes: extend previous note if contiguous slot and same pitch
+        if articulation.tie_notes and prev_note:
+            prev_slot_idx = int((prev_note.start_beat - assignment.bar_index * 4.0) / step_duration)
+            if ss.slot.index == prev_slot_idx + 1 and prev_note.pitch == note.pitch:
+                prev_note.duration_beats = max(prev_note.duration_beats, (start_beat - prev_note.start_beat) + duration)
+                prev_note.metadata["tied"] = True
+                prev_note.metadata["score"] = max(prev_note.metadata.get("score", 0), ss.score)
+                continue
+
         notes.append(note)
         prev_note = note
 

@@ -99,29 +99,63 @@ Open your web browser and navigate to:
 
 ### UI Features Available
 
-✓ Preset Management
-  - Load 4 pre-defined presets
-  - View preset descriptions
+✓ Preset Management  
+  - Load 4 pre-defined presets  
+  - View preset descriptions  
 
-✓ Drum Pattern Selection
-  - 12 patterns available
-  - Pattern descriptions shown
+✓ Drum Pattern Selection  
+  - 12 patterns available  
+  - Pattern descriptions shown  
 
-✓ Music Theory Controls
-  - Key/Scale selector (D minor, A minor, etc.)
-  - Tempo slider (100-160 BPM)
+✓ Music Theory Controls  
+  - Key/Scale selector (D minor, A minor, etc.)  
+  - Tempo slider (100-160 BPM)  
 
-✓ Parameter Controls
-  - Rhythm: Note density, complexity, kick interaction
-  - Melody: Root emphasis, interval jumps
+✓ Parameter Controls (wired into Bass V2 API)
+  - Mode & Behavior  
+    - **Mode Strategy** → `mode_and_behavior_controls.strategy`  
+      - `auto_from_drums`: mode inferred from drum energy per bar  
+      - `fixed_mode`: force one mode for all bars  
+    - **Fixed Mode** → `mode_and_behavior_controls.fixed_mode`  
+      - `sub_anchor`, `root_fifth_driver`, `pocket_groove`, `rolling_ostinato`, `offbeat_stabs`, `lead_ish`  
+      - Strongest qualitative change: from sparse subs → rolling → lead-like lines  
+  - Rhythm → `rhythm_controls`  
+    - **Note Density** (`note_density`): sparse → dense patterns (changes note count)  
+    - **Complexity** (`rhythmic_complexity`): straight → syncopated/offbeat slot choices  
+    - **Swing** (`swing_amount`): pushes odd 16ths later for shuffle feel  
+    - **Groove Depth** (`groove_depth`): nudges downbeats earlier and offbeats later  
+    - **Kick Interaction** (`kick_interaction_mode`): avoid vs reinforce kick grid alignment  
+  - Melody → `melody_controls`  
+    - **Root Emphasis** (`root_note_emphasis`): root-heavy vs more scale tones  
+    - **Interval Jumps** (`interval_jump_magnitude`): stepwise vs bigger leaps between notes  
+    - **Melodic Intensity** (`melodic_intensity`): how often to choose upper scale degrees / octave jumps  
+    - **Base Octave** (`base_octave`): shifts whole bassline register (1=lower, 3=higher)  
 
-✓ Generate Button
-  - Click to generate bass
-  - Loading state during generation
+✓ Generate Button  
+  - Click to generate bass  
+  - Loading state during generation  
 
-✓ Preview Panel
-  - Shows note count, duration, bars, tempo
-  - Download MIDI button
+✓ Preview Panel  
+  - Shows note count, duration, bars, tempo  
+  - Download MIDI button  
+
+## Standalone UI → Bass V2 API Summary
+
+The standalone HTML UI sends a focused subset of the full Bass V2 control surface to the backend:
+
+- `theory_context`  
+  - `key_scale`, `tempo_bpm` → map directly to `TheoryContext` in `bass_v2_types.py` and drive pitch material and preview tempo.  
+- `controls.mode_and_behavior_controls`  
+  - `strategy`, `fixed_mode` → feed `bass_mode_selection()` (`mode_and_behavior_controls.strategy` / `.fixed_mode`) and determine `mode_per_bar` in `clip.metadata`.  
+- `controls.rhythm_controls`  
+  - `note_density`, `rhythmic_complexity`, `swing_amount`, `groove_depth`, `kick_interaction_mode` → used in `step_scoring_and_selection()` and `pitch_mapping_and_midi()` to choose slots, apply swing/groove timing, and avoid/reinforce kicks.  
+- `controls.melody_controls`  
+  - `root_note_emphasis`, `interval_jump_magnitude`, `melodic_intensity`, `base_octave` → used in `pitch_mapping_and_midi()` to shape scale degree choice, leap size, and register.  
+
+Qualitatively:
+- Changing **Mode Strategy + Fixed Mode** gives the largest structural change (pattern archetype, density envelope, groove).  
+- **Note Density / Complexity / Kick Interaction** reshape where notes land against the drum grid.  
+- **Root Emphasis / Interval Jumps / Melodic Intensity / Base Octave** change how melodic, jumpy, and high/low the bass feels while staying in key.  
 
 ## Architecture Summary
 

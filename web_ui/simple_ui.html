@@ -301,6 +301,36 @@
       <div class="main-content">
         <h2 style="color: var(--accent); margin-bottom: 1.5rem;">Parameters</h2>
 
+        <!-- Mode Controls -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>Mode & Behavior</span>
+            <span>▼</span>
+          </div>
+          <div class="control-content">
+            <div class="control-item">
+              <label>Mode Strategy</label>
+              <select id="modeStrategy">
+                <option value="auto_from_drums">Auto from Drums</option>
+                <option value="fixed_mode">Fixed Mode</option>
+              </select>
+            </div>
+
+            <div class="control-item">
+              <label>Fixed Mode</label>
+              <select id="fixedMode">
+                <option value="">Auto (from strategy)</option>
+                <option value="sub_anchor">Sub Anchor</option>
+                <option value="root_fifth_driver">Root/Fifth Driver</option>
+                <option value="pocket_groove">Pocket Groove</option>
+                <option value="rolling_ostinato">Rolling Ostinato</option>
+                <option value="offbeat_stabs">Offbeat Stabs</option>
+                <option value="lead_ish">Lead-ish</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <!-- Rhythm Controls -->
         <div class="control-group">
           <div class="control-header">
@@ -316,6 +346,16 @@
             <div class="control-item">
               <label>Complexity <span class="control-value" id="complexityValue">0.5</span></label>
               <input type="range" id="complexity" min="0.0" max="1.0" step="0.05" value="0.5">
+            </div>
+
+            <div class="control-item">
+              <label>Swing <span class="control-value" id="swingValue">0.00</span></label>
+              <input type="range" id="swingAmount" min="0.0" max="1.0" step="0.05" value="0.0">
+            </div>
+
+            <div class="control-item">
+              <label>Groove Depth <span class="control-value" id="grooveValue">0.50</span></label>
+              <input type="range" id="grooveDepth" min="0.0" max="1.0" step="0.05" value="0.5">
             </div>
 
             <div class="control-item">
@@ -344,6 +384,16 @@
             <div class="control-item">
               <label>Interval Jumps <span class="control-value" id="intervalJumpsValue">0.4</span></label>
               <input type="range" id="intervalJumps" min="0.0" max="1.0" step="0.05" value="0.4">
+            </div>
+
+            <div class="control-item">
+              <label>Melodic Intensity <span class="control-value" id="melodicIntensityValue">0.5</span></label>
+              <input type="range" id="melodicIntensity" min="0.0" max="1.0" step="0.05" value="0.5">
+            </div>
+
+            <div class="control-item">
+              <label>Base Octave <span class="control-value" id="baseOctaveValue">2</span></label>
+              <input type="range" id="baseOctave" min="1" max="3" step="1" value="2">
             </div>
           </div>
         </div>
@@ -439,6 +489,14 @@
 
         // Apply controls if present
         if (preset.controls) {
+          const modeCfg = preset.controls.mode_and_behavior_controls || {};
+          if (modeCfg.strategy) {
+            document.getElementById('modeStrategy').value = modeCfg.strategy;
+          }
+          if (modeCfg.fixed_mode !== undefined) {
+            document.getElementById('fixedMode').value = modeCfg.fixed_mode || '';
+          }
+
           const rhythm = preset.controls.rhythm_controls || {};
           if (rhythm.note_density !== undefined) {
             document.getElementById('noteDensity').value = rhythm.note_density;
@@ -447,6 +505,14 @@
           if (rhythm.rhythmic_complexity !== undefined) {
             document.getElementById('complexity').value = rhythm.rhythmic_complexity;
             document.getElementById('complexityValue').textContent = rhythm.rhythmic_complexity.toFixed(2);
+          }
+          if (rhythm.swing_amount !== undefined) {
+            document.getElementById('swingAmount').value = rhythm.swing_amount;
+            document.getElementById('swingValue').textContent = parseFloat(rhythm.swing_amount).toFixed(2);
+          }
+          if (rhythm.groove_depth !== undefined) {
+            document.getElementById('grooveDepth').value = rhythm.groove_depth;
+            document.getElementById('grooveValue').textContent = parseFloat(rhythm.groove_depth).toFixed(2);
           }
           if (rhythm.kick_interaction_mode) {
             document.getElementById('kickInteraction').value = rhythm.kick_interaction_mode;
@@ -460,6 +526,14 @@
           if (melody.interval_jump_magnitude !== undefined) {
             document.getElementById('intervalJumps').value = melody.interval_jump_magnitude;
             document.getElementById('intervalJumpsValue').textContent = melody.interval_jump_magnitude.toFixed(2);
+          }
+          if (melody.melodic_intensity !== undefined) {
+            document.getElementById('melodicIntensity').value = melody.melodic_intensity;
+            document.getElementById('melodicIntensityValue').textContent = melody.melodic_intensity.toFixed(2);
+          }
+          if (melody.base_octave !== undefined) {
+            document.getElementById('baseOctave').value = melody.base_octave;
+            document.getElementById('baseOctaveValue').textContent = melody.base_octave;
           }
         }
       } catch (err) {
@@ -484,14 +558,22 @@
             tempo_bpm: parseFloat(document.getElementById('tempo').value),
           },
           controls: {
+            mode_and_behavior_controls: {
+              strategy: document.getElementById('modeStrategy').value,
+              fixed_mode: document.getElementById('fixedMode').value || null,
+            },
             rhythm_controls: {
               note_density: parseFloat(document.getElementById('noteDensity').value),
               rhythmic_complexity: parseFloat(document.getElementById('complexity').value),
+              swing_amount: parseFloat(document.getElementById('swingAmount').value),
+              groove_depth: parseFloat(document.getElementById('grooveDepth').value),
               kick_interaction_mode: document.getElementById('kickInteraction').value,
             },
             melody_controls: {
               root_note_emphasis: parseFloat(document.getElementById('rootEmphasis').value),
               interval_jump_magnitude: parseFloat(document.getElementById('intervalJumps').value),
+              melodic_intensity: parseFloat(document.getElementById('melodicIntensity').value),
+              base_octave: parseInt(document.getElementById('baseOctave').value, 10),
             },
           },
         };
@@ -562,12 +644,28 @@
       document.getElementById('complexityValue').textContent = parseFloat(e.target.value).toFixed(2);
     });
 
+    document.getElementById('swingAmount').addEventListener('input', (e) => {
+      document.getElementById('swingValue').textContent = parseFloat(e.target.value).toFixed(2);
+    });
+
+    document.getElementById('grooveDepth').addEventListener('input', (e) => {
+      document.getElementById('grooveValue').textContent = parseFloat(e.target.value).toFixed(2);
+    });
+
     document.getElementById('rootEmphasis').addEventListener('input', (e) => {
       document.getElementById('rootEmphasisValue').textContent = parseFloat(e.target.value).toFixed(2);
     });
 
     document.getElementById('intervalJumps').addEventListener('input', (e) => {
       document.getElementById('intervalJumpsValue').textContent = parseFloat(e.target.value).toFixed(2);
+    });
+
+    document.getElementById('melodicIntensity').addEventListener('input', (e) => {
+      document.getElementById('melodicIntensityValue').textContent = parseFloat(e.target.value).toFixed(2);
+    });
+
+    document.getElementById('baseOctave').addEventListener('input', (e) => {
+      document.getElementById('baseOctaveValue').textContent = e.target.value;
     });
 
     document.getElementById('generateBtn').addEventListener('click', generateBass);
